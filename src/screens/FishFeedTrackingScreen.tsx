@@ -1,0 +1,219 @@
+// src/screens/FishFeedTrackingScreen.tsx
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import * as Animatable from 'react-native-animatable';
+import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
+import CustomSelect from '../components/CustomSelect';
+import AddFishFeedModal from '../components/AddFishFeedModal';
+
+// Données mock pour la liste des distributions (à remplacer par API)
+const mockFeedDistributions = [
+  {
+    id: '1',
+    date: '2025-05-10',
+    bassin: 'Bassin Nord',
+    typeAliment: 'Granulés',
+    quantite: 20,
+  },
+  {
+    id: '2',
+    date: '2025-05-08',
+    bassin: 'Bassin Sud',
+    typeAliment: 'Farine',
+    quantite: 15,
+  },
+];
+
+// Types pour une distribution d’aliment
+interface FeedDistribution {
+  id: string;
+  date: string;
+  bassin: string;
+  typeAliment: string;
+  quantite: number;
+}
+
+const FishFeedTrackingScreen: React.FC = () => {
+  const [filterBassin, setFilterBassin] = useState('');
+  const [filterTypeAliment, setFilterTypeAliment] = useState('');
+  const [filterPeriod, setFilterPeriod] = useState('');
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  // Options pour les filtres
+  const bassins = [
+    { label: 'Tous les bassins', value: '' },
+    { label: 'Bassin Nord', value: 'Bassin Nord' },
+    { label: 'Bassin Sud', value: 'Bassin Sud' },
+  ];
+  const typesAliment = [
+    { label: 'Tous les types', value: '' },
+    { label: 'Granulés', value: 'Granulés' },
+    { label: 'Farine', value: 'Farine' },
+  ];
+  const periods = [
+    { label: 'Toutes périodes', value: '' },
+    { label: 'Dernière semaine', value: 'week' },
+    { label: 'Dernier mois', value: 'month' },
+  ];
+
+  // Filtrer les distributions avec gestion des erreurs
+  const filteredDistributions = mockFeedDistributions.filter((distribution) => {
+    try {
+      const matchesBassin = !filterBassin || distribution.bassin === filterBassin;
+      const matchesTypeAliment = !filterTypeAliment || distribution.typeAliment === filterTypeAliment;
+      const matchesPeriod =
+        !filterPeriod ||
+        (filterPeriod === 'week' && distribution.date >= '2025-05-06') ||
+        (filterPeriod === 'month' && distribution.date >= '2025-04-10');
+      return matchesBassin && matchesTypeAliment && matchesPeriod;
+    } catch (error) {
+      console.error('Erreur de filtrage:', error);
+      return true;
+    }
+  });
+
+  // Rendu de chaque carte de distribution
+  const renderFeedItem = ({ item }: { item: FeedDistribution }) => (
+    <Animatable.View animation="fadeInUp" duration={500} style={styles.feedCard}>
+      <View style={styles.cardHeader}>
+        <Icon name="restaurant" size={28} color={COLORS.accent} />
+        <Text style={styles.cardTitle}>{item.bassin}</Text>
+      </View>
+      <Text style={styles.cardDetail}>Date: {item.date}</Text>
+      <Text style={styles.cardDetail}>Type d’aliment: {item.typeAliment}</Text>
+      <Text style={styles.cardDetail}>Quantité: {item.quantite} kg</Text>
+    </Animatable.View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Filtres */}
+      <View style={styles.filterContainer}>
+        <CustomSelect
+          options={bassins}
+          value={filterBassin}
+          onChange={setFilterBassin}
+          placeholder="Filtrer par bassin"
+        />
+        <CustomSelect
+          options={typesAliment}
+          value={filterTypeAliment}
+          onChange={setFilterTypeAliment}
+          placeholder="Filtrer par type d’aliment"
+        />
+        <CustomSelect
+          options={periods}
+          value={filterPeriod}
+          onChange={setFilterPeriod}
+          placeholder="Filtrer par période"
+        />
+      </View>
+
+      {/* Liste des distributions */}
+      <FlatList
+        data={filteredDistributions}
+        renderItem={renderFeedItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>Aucune distribution enregistrée</Text>
+        }
+      />
+
+      {/* Bouton flottant */}
+      <Animatable.View animation="bounceIn" duration={1000}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setIsModalVisible(true)}
+        >
+          <Icon name="add" size={30} color={COLORS.white} />
+        </TouchableOpacity>
+      </Animatable.View>
+
+      {/* Modal pour ajouter une distribution */}
+      <AddFishFeedModal
+        isVisible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        onSubmit={(distribution) => {
+          console.log('Nouvelle distribution:', distribution);
+          setIsModalVisible(false);
+          // TODO: Envoyer au backend
+        }}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  filterContainer: {
+    flexDirection: 'column',
+    padding: SIZES.padding,
+  },
+  listContainer: {
+    padding: SIZES.padding,
+  },
+  feedCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    marginBottom: SIZES.margin,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.margin / 2,
+  },
+  cardTitle: {
+    fontSize: SIZES.fontLarge,
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+    marginLeft: SIZES.margin / 2,
+  },
+  cardDetail: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  emptyText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: SIZES.margin * 2,
+    right: SIZES.margin * 2,
+    backgroundColor: COLORS.accent,
+    borderRadius: 30,
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+});
+
+export default FishFeedTrackingScreen;
