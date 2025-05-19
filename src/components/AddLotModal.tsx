@@ -57,6 +57,8 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
     { label: 'Sélectionner un bâtiment', value: '' },
     { label: 'Bâtiment A', value: 'Bâtiment A' },
     { label: 'Bâtiment B', value: 'Bâtiment B' },
+    { label: 'Bâtiment C', value: 'Bâtiment C' },
+
   ];
   const races = [
     { label: 'Sélectionner une race', value: '' },
