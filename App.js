@@ -1,31 +1,13 @@
-// import { StatusBar } from 'expo-status-bar';
-// import { StyleSheet, Text, View } from 'react-native';
-
-// export default function App() {
-//   return (
-//     <View style={styles.container}>
-//       <Text>Open up App.js to start working on your app!</Text>
-//       <StatusBar style="auto" />
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '#fff',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-// });
-
-
-
 // App.tsx
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
 import Navigation from './src/navigations/navigation';
+import Toast from "react-native-toast-message";
+import { toastConfig } from "./src/utils";
+
+
 
 export default function App() {
   // Charger les polices
@@ -40,10 +22,14 @@ export default function App() {
     return null;
   }
 
+  const queryClient = new QueryClient();
+
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <StatusBar style="light" />
       <Navigation />
-    </>
+      <Toast config={toastConfig} position={'bottom'} />
+    </QueryClientProvider>
+
   );
 }
