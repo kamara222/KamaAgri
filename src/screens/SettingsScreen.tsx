@@ -1,239 +1,3 @@
-// // src/screens/SettingsScreen.tsx
-// import React, { useState } from 'react';
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   ScrollView,
-//   TouchableOpacity,
-//   FlatList,
-// } from 'react-native';
-// import Icon from 'react-native-vector-icons/MaterialIcons';
-// import * as Animatable from 'react-native-animatable';
-// import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
-// import CustomSelect from '../components/CustomSelect';
-// import AddUserModal from '../components/AddUserModal';
-
-// // Données mock pour le profil et les utilisateurs (à remplacer par API)
-// const mockUser = {
-//   name: 'Jean Dupont',
-//   email: 'jean.dupont@example.com',
-//   role: 'Admin',
-// };
-
-// const mockUsers = [
-//   { id: '1', name: 'Marie Curie', email: 'marie.curie@example.com', role: 'Utilisateur' },
-//   { id: '2', name: 'Pierre Martin', email: 'pierre.martin@example.com', role: 'Admin' },
-// ];
-
-// // Types pour un utilisateur
-// interface User {
-//   id: string;
-//   name: string;
-//   email: string;
-//   role: string;
-// }
-
-// const SettingsScreen: React.FC = () => {
-//   const [currency, setCurrency] = useState('XAF');
-//   const [language, setLanguage] = useState('fr');
-//   const [isModalVisible, setIsModalVisible] = useState(false);
-
-//   // Options pour les préférences
-//   const currencies = [
-//     { label: 'XAF', value: 'XAF' },
-//     { label: 'EUR', value: 'EUR' },
-//     { label: 'USD', value: 'USD' },
-//   ];
-//   const languages = [
-//     { label: 'Français', value: 'fr' },
-//     { label: 'Anglais', value: 'en' },
-//   ];
-
-//   // Rendu de chaque utilisateur
-//   const renderUserItem = ({ item }: { item: User }) => (
-//     <Animatable.View animation="fadeInUp" duration={500} style={styles.userCard}>
-//       <View style={styles.cardHeader}>
-//         <Icon name="person" size={28} color={COLORS.accent} />
-//         <Text style={styles.cardTitle}>{item.name}</Text>
-//       </View>
-//       <Text style={styles.cardDetail}>Email: {item.email}</Text>
-//       <Text style={styles.cardDetail}>Rôle: {item.role}</Text>
-//       <TouchableOpacity
-//         style={styles.deleteButton}
-//         onPress={() => console.log('Supprimer utilisateur', item.id)}
-//       >
-//         <Icon name="delete" size={24} color={COLORS.error} />
-//       </TouchableOpacity>
-//     </Animatable.View>
-//   );
-
-//   return (
-//     <ScrollView style={styles.container}>
-//       {/* Profil utilisateur */}
-//       <View style={styles.section}>
-//         <Text style={styles.sectionTitle}>Profil Utilisateur</Text>
-//         <Animatable.View animation="fadeInUp" duration={500}>
-//           <View style={styles.card}>
-//             <Text style={styles.cardDetail}>Nom: {mockUser.name}</Text>
-//             <Text style={styles.cardDetail}>Email: {mockUser.email}</Text>
-//             <Text style={styles.cardDetail}>Rôle: {mockUser.role}</Text>
-//           </View>
-//         </Animatable.View>
-//       </View>
-
-//       {/* Préférences */}
-//       <View style={styles.section}>
-//         <Text style={styles.sectionTitle}>Préférences</Text>
-//         <View style={styles.card}>
-//           <Text style={styles.cardDetail}>Devise</Text>
-//           <CustomSelect
-//             options={currencies}
-//             value={currency}
-//             onChange={setCurrency}
-//             placeholder="Choisir une devise"
-//           />
-//           <Text style={styles.cardDetail}>Langue</Text>
-//           <CustomSelect
-//             options={languages}
-//             value={language}
-//             onChange={setLanguage}
-//             placeholder="Choisir une langue"
-//           />
-//         </View>
-//       </View>
-
-//       {/* Gestion des utilisateurs (pour admins) */}
-//       {mockUser.role === 'Admin' && (
-//         <View style={styles.section}>
-//           <Text style={styles.sectionTitle}>Gestion des Utilisateurs</Text>
-//           <FlatList
-//             data={mockUsers}
-//             renderItem={renderUserItem}
-//             keyExtractor={(item) => item.id}
-//             contentContainerStyle={styles.listContainer}
-//             ListEmptyComponent={
-//               <Text style={styles.emptyText}>Aucun utilisateur</Text>
-//             }
-//           />
-//           <Animatable.View animation="bounceIn" duration={1000}>
-//             <TouchableOpacity
-//               style={styles.addButton}
-//               onPress={() => setIsModalVisible(true)}
-//             >
-//               <Icon name="add" size={24} color={COLORS.white} />
-//               <Text style={styles.addButtonText}>Ajouter Utilisateur</Text>
-//             </TouchableOpacity>
-//           </Animatable.View>
-//         </View>
-//       )}
-
-//       {/* Modal pour ajouter un utilisateur */}
-//       <AddUserModal
-//         isVisible={isModalVisible}
-//         onClose={() => setIsModalVisible(false)}
-//         onSubmit={(user) => {
-//           console.log('Nouvel utilisateur:', user);
-//           setIsModalVisible(false);
-//           // TODO: Envoyer au backend
-//         }}
-//       />
-//     </ScrollView>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: COLORS.background,
-//   },
-//   section: {
-//     padding: SIZES.padding,
-//   },
-//   sectionTitle: {
-//     fontSize: SIZES.fontTitle,
-//     fontFamily: FONTS.bold,
-//     color: COLORS.text,
-//     marginBottom: SIZES.margin,
-//   },
-//   card: {
-//     backgroundColor: COLORS.white,
-//     borderRadius: SIZES.radius,
-//     padding: SIZES.padding,
-//     marginBottom: SIZES.margin,
-//     shadowColor: COLORS.text,
-//     shadowOffset: { width: 0, height: 4 },
-//     shadowOpacity: 0.3,
-//     shadowRadius: 6,
-//     elevation: 5,
-//   },
-//   userCard: {
-//     backgroundColor: COLORS.white,
-//     borderRadius: SIZES.radius,
-//     padding: SIZES.padding,
-//     marginBottom: SIZES.margin,
-//     shadowColor: COLORS.text,
-//     shadowOffset: { width: 0, height: 4 },
-//     shadowOpacity: 0.3,
-//     shadowRadius: 6,
-//     elevation: 5,
-//     position: 'relative',
-//   },
-//   cardHeader: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     marginBottom: SIZES.margin / 2,
-//   },
-//   cardTitle: {
-//     fontSize: SIZES.fontLarge,
-//     fontFamily: FONTS.bold,
-//     color: COLORS.primary,
-//     marginLeft: SIZES.margin / 2,
-//   },
-//   cardDetail: {
-//     fontSize: SIZES.fontMedium,
-//     fontFamily: FONTS.regular,
-//     color: COLORS.text,
-//     marginBottom: 8,
-//   },
-//   deleteButton: {
-//     position: 'absolute',
-//     top: SIZES.padding,
-//     right: SIZES.padding,
-//   },
-//   addButton: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     backgroundColor: COLORS.accent,
-//     padding: SIZES.padding,
-//     borderRadius: SIZES.radius,
-//     marginTop: SIZES.margin,
-//   },
-//   addButtonText: {
-//     fontSize: SIZES.fontMedium,
-//     fontFamily: FONTS.bold,
-//     color: COLORS.white,
-//     marginLeft: SIZES.margin / 2,
-//   },
-//   listContainer: {
-//     paddingBottom: SIZES.padding,
-//   },
-//   emptyText: {
-//     fontSize: SIZES.fontMedium,
-//     fontFamily: FONTS.regular,
-//     color: COLORS.textLight,
-//     textAlign: 'center',
-//     marginTop: SIZES.margin,
-//   },
-// });
-
-// export default SettingsScreen;
-
-
-
-
-
-
 // src/screens/SettingsScreen.tsx
 import React, { useState } from 'react';
 import {
@@ -317,11 +81,11 @@ const SettingsScreen: React.FC = () => {
 
   // Ajouter ou modifier un utilisateur
   const handleSaveUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.password) {
+    if (!newUser.name || !newUser.email || (!editingUser && !newUser.password)) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
       return;
     }
-    if (newUser.password.length < 8) {
+    if (!editingUser && newUser.password.length < 8) {
       Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères.');
       return;
     }
@@ -353,6 +117,24 @@ const SettingsScreen: React.FC = () => {
     setAddUserModalVisible(false);
     setNewUser({ name: '', email: '', role: 'opérateur', password: '' });
     setEditingUser(null);
+  };
+
+  // Supprimer un utilisateur
+  const handleDeleteUser = (userId: string) => {
+    Alert.alert(
+      'Confirmer la suppression',
+      'Voulez-vous supprimer cet utilisateur ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            setUsers(users.filter((user) => user.id !== userId));
+          },
+        },
+      ]
+    );
   };
 
   // Ajouter un type
@@ -391,26 +173,38 @@ const SettingsScreen: React.FC = () => {
       </View>
       <Text style={styles.cardDetail}>Email: {item.email}</Text>
       <Text style={styles.cardDetail}>Rôle: {item.role}</Text>
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => {
-          setEditingUser(item);
-          setNewUser({
-            name: item.name,
-            email: item.email,
-            role: item.role,
-            password: '',
-          });
-          setAddUserModalVisible(true);
-        }}
-      >
-        <Icon name="edit" size={24} color={COLORS.accent} />
-      </TouchableOpacity>
+      <View style={styles.cardActions}>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => {
+            setEditingUser(item);
+            setNewUser({
+              name: item.name,
+              email: item.email,
+              role: item.role,
+              password: '',
+            });
+            setAddUserModalVisible(true);
+          }}
+          accessibilityLabel={`Modifier l’utilisateur ${item.name}`}
+          accessibilityHint="Ouvre un formulaire pour modifier les détails de l’utilisateur"
+        >
+          <Icon name="edit" size={24} color={COLORS.accent} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteUser(item.id)}
+          accessibilityLabel={`Supprimer l’utilisateur ${item.name}`}
+          accessibilityHint="Supprime l’utilisateur de la liste"
+        >
+          <Icon name="delete" size={24} color={COLORS.error} />
+        </TouchableOpacity>
+      </View>
     </Animatable.View>
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Gestion des utilisateurs */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Gestion des Utilisateurs</Text>
@@ -419,6 +213,7 @@ const SettingsScreen: React.FC = () => {
           value={filterRole}
           onChange={setFilterRole}
           placeholder="Filtrer par rôle"
+          style={styles.filterSelect}
         />
         <FlatList
           data={filteredUsers}
@@ -428,6 +223,7 @@ const SettingsScreen: React.FC = () => {
           ListEmptyComponent={
             <Text style={styles.emptyText}>Aucun utilisateur</Text>
           }
+          scrollEnabled={false} // Désactive le défilement de la FlatList
         />
         <Animatable.View animation="bounceIn" duration={1000}>
           <TouchableOpacity
@@ -437,6 +233,8 @@ const SettingsScreen: React.FC = () => {
               setNewUser({ name: '', email: '', role: 'opérateur', password: '' });
               setAddUserModalVisible(true);
             }}
+            accessibilityLabel="Ajouter un nouvel utilisateur"
+            accessibilityHint="Ouvre un formulaire pour ajouter un utilisateur"
           >
             <Icon name="person-add" size={24} color={COLORS.white} />
             <Text style={styles.actionButtonText}>Ajouter Utilisateur</Text>
@@ -456,10 +254,12 @@ const SettingsScreen: React.FC = () => {
             onChangeText={setThresholdInput}
             keyboardType="numeric"
             placeholder="Entrez le seuil"
+            accessibilityLabel="Seuil d’alerte des stocks"
           />
           <TouchableOpacity
             style={styles.saveButton}
             onPress={handleSaveThreshold}
+            accessibilityLabel="Enregistrer le seuil d’alerte"
           >
             <Text style={styles.saveButtonText}>Enregistrer Seuil</Text>
           </TouchableOpacity>
@@ -469,6 +269,8 @@ const SettingsScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => setAddTypeModalVisible(true)}
+            accessibilityLabel="Ajouter un nouveau type"
+            accessibilityHint="Ouvre un formulaire pour ajouter un type (aliment, race, espèce)"
           >
             <Icon name="add-circle" size={24} color={COLORS.white} />
             <Text style={styles.actionButtonText}>Ajouter Type</Text>
@@ -491,6 +293,7 @@ const SettingsScreen: React.FC = () => {
             value={newUser.name}
             onChangeText={(text) => setNewUser({ ...newUser, name: text })}
             placeholder="Nom"
+            accessibilityLabel="Nom de l’utilisateur"
           />
           <TextInput
             style={styles.input}
@@ -499,11 +302,13 @@ const SettingsScreen: React.FC = () => {
             placeholder="Email/Identifiant"
             keyboardType="email-address"
             autoCapitalize="none"
+            accessibilityLabel="Email de l’utilisateur"
           />
           <Picker
             selectedValue={newUser.role}
             onValueChange={(value) => setNewUser({ ...newUser, role: value })}
             style={styles.picker}
+            accessibilityLabel="Rôle de l’utilisateur"
           >
             <Picker.Item label="Admin" value="admin" />
             <Picker.Item label="Gestionnaire" value="gestionnaire" />
@@ -513,19 +318,22 @@ const SettingsScreen: React.FC = () => {
             style={styles.input}
             value={newUser.password}
             onChangeText={(text) => setNewUser({ ...newUser, password: text })}
-            placeholder="Mot de passe"
+            placeholder={editingUser ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe'}
             secureTextEntry
+            accessibilityLabel="Mot de passe de l’utilisateur"
           />
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setAddUserModalVisible(false)}
+              accessibilityLabel="Annuler"
             >
               <Text style={styles.modalButtonText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonSave]}
               onPress={handleSaveUser}
+              accessibilityLabel="Enregistrer l’utilisateur"
             >
               <Text style={styles.modalButtonText}>Enregistrer</Text>
             </TouchableOpacity>
@@ -545,6 +353,7 @@ const SettingsScreen: React.FC = () => {
             selectedValue={newType.category}
             onValueChange={(value) => setNewType({ ...newType, category: value })}
             style={styles.picker}
+            accessibilityLabel="Catégorie du type"
           >
             <Picker.Item label="Aliments" value="aliments" />
             <Picker.Item label="Races" value="races" />
@@ -555,17 +364,20 @@ const SettingsScreen: React.FC = () => {
             value={newType.name}
             onChangeText={(text) => setNewType({ ...newType, name: text })}
             placeholder="Nom du type"
+            accessibilityLabel="Nom du type"
           />
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setAddTypeModalVisible(false)}
+              accessibilityLabel="Annuler"
             >
               <Text style={styles.modalButtonText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonSave]}
               onPress={handleAddType}
+              accessibilityLabel="Enregistrer le type"
             >
               <Text style={styles.modalButtonText}>Enregistrer</Text>
             </TouchableOpacity>
@@ -580,6 +392,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    paddingBottom: SIZES.padding * 2,
   },
   section: {
     padding: SIZES.padding,
@@ -604,7 +419,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
-    position: 'relative',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -616,6 +430,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginLeft: SIZES.margin / 2,
+    flex: 1,
   },
   cardDetail: {
     fontSize: SIZES.fontMedium,
@@ -623,10 +438,17 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 4,
   },
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: SIZES.margin / 2,
+  },
   editButton: {
-    position: 'absolute',
-    top: SIZES.padding,
-    right: SIZES.padding,
+    padding: SIZES.padding / 2,
+    marginRight: SIZES.margin / 2,
+  },
+  deleteButton: {
+    padding: SIZES.padding / 2,
   },
   actionButton: {
     flexDirection: 'row',
@@ -684,6 +506,9 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontMedium,
     fontFamily: FONTS.bold,
     color: COLORS.white,
+  },
+  filterSelect: {
+    marginBottom: SIZES.margin,
   },
   modal: {
     justifyContent: 'center',

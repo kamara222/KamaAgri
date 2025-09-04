@@ -1,4 +1,3 @@
-// src/screens/HomeScreen.tsx
 import React, { memo } from 'react';
 import {
   View,
@@ -119,7 +118,7 @@ const HomeScreen: React.FC = () => {
         </View>
 
         {/* Section des graphiques */}
-        <View style={styles.chartContainer}>
+        {/* <View style={styles.chartContainer}>
           <Text style={styles.sectionTitle}>Mortalités (7 jours)</Text>
           {isDataValid ? (
             <Animatable.View animation="bounceIn" duration={1000}>
@@ -150,7 +149,7 @@ const HomeScreen: React.FC = () => {
           ) : (
             <Text style={styles.errorText}>Erreur : Données du graphique non disponibles</Text>
           )}
-        </View>
+        </View> */}
 
         <View style={styles.chartContainer}>
           <Text style={styles.sectionTitle}>Ventes (7 jours, XAF)</Text>
@@ -185,7 +184,7 @@ const HomeScreen: React.FC = () => {
           )}
         </View>
 
-        <View style={styles.chartContainer}>
+        {/* <View style={styles.chartContainer}>
           <Text style={styles.sectionTitle}>Stocks Critiques (7 jours)</Text>
           {isDataValid ? (
             <Animatable.View animation="bounceIn" duration={1000}>
@@ -216,7 +215,7 @@ const HomeScreen: React.FC = () => {
           ) : (
             <Text style={styles.errorText}>Erreur : Données du graphique non disponibles</Text>
           )}
-        </View>
+        </View> */}
 
         {/* Section de navigation rapide */}
         <View style={styles.navigationContainer}>

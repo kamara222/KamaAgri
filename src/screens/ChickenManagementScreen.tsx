@@ -103,12 +103,12 @@ const ChickenManagementScreen: React.FC = () => {
                 >
                     <Text style={styles.navButtonText}>Suivi de l’Alimentation</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                {/* <TouchableOpacity
                     style={styles.navButton}
                     onPress={() => navigation.navigate('WeightTracking')}
                 >
                     <Text style={styles.navButtonText}>Suivi des Poids</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 <TouchableOpacity
                     style={styles.navButton}
                     onPress={() => navigation.navigate('SalesTracking')}
