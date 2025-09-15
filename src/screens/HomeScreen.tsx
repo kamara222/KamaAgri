@@ -227,60 +227,70 @@ const HomeScreen: React.FC = () => {
                 icon: 'egg',
                 screen: 'ChickenManagement',
                 hint: 'Navigue vers la gestion des poulets',
+                code:'poulets'
               },
               {
                 name: 'Poissons',
                 icon: 'waves',
                 screen: 'FishManagement',
                 hint: 'Navigue vers la gestion des poissons',
+                code:'poissons'
               },
               {
                 name: 'Stocks',
                 icon: 'inventory',
                 screen: 'StockManagement',
                 hint: 'Navigue vers la gestion des stocks',
+                code:'stocks'
               },
               {
                 name: 'Rapports',
                 icon: 'assessment',
                 screen: 'Reports',
                 hint: 'Navigue vers les rapports',
+                code:'rapports'
               },
               {
                 name: 'Ventes',
                 icon: 'shopping-cart',
                 screen: 'SalesTrackingGeneral',
                 hint: 'Navigue vers le suivi des ventes',
+                code:'ventes'
               },
               {
                 name: 'Paramètres',
                 icon: 'settings',
                 screen: 'Settings',
                 hint: 'Navigue vers les paramètres',
+                code:'parametres'
               },
               {
                 name: 'Sauvegarde',
                 icon: 'archive',
                 screen: 'Backup',
                 hint: 'Navigue vers la gestion des sauvegardes',
+                code:'sauvegarde'
               },
               {
                 name: 'Tableau Avancé',
                 icon: 'dashboard',
                 screen: 'AdvancedDashboard',
                 hint: 'Navigue vers le tableau de bord avancé',
+                code:'tableau_de_bord'
               },
               {
                 name: 'Planificateur',
                 icon: 'event',
                 screen: 'Planner',
                 hint: 'Navigue vers le planificateur d’événements',
+                code:'planificateur'
               },
               {
                 name: 'Galerie',
                 icon: 'photo-camera',
                 screen: 'PhotoGallery',
                 hint: 'Navigue vers la galerie photo',
+                code:'galerie'
               },
             ].map((button, index) => (
               <Animatable.View

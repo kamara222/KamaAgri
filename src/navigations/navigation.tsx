@@ -54,10 +54,34 @@ import AdvancedDashboardScreen from '../screens/AdvancedDashboardScreen';
 import PlannerScreen from '../screens/PlannerScreen';
 import SalesTrackingGeneralScreen from '../screens/SalesTrackingGeneralScreen';
 import PhotoGalleryScreen from '../screens/PhotoGalleryScreen';
+import LoginScreen from '../auth/LoginScreen';
+import SplashScreen from '../screens/SplashScreen';
 
 // Définir les types pour la navigation
 export type RootStackParamList = {
     Home: undefined;
+    LoginScreen: undefined;
+    SplashScreen: undefined;
+    ChickenManagement: undefined;
+    Mortality: undefined;
+    FeedTracking: undefined;
+    WeightTracking: undefined;
+    VaccinationTracking: undefined;
+    SalesTracking: undefined;
+    SalesTrackingGeneral: undefined;
+    FishManagement: undefined;
+    FishMortality: undefined;
+    FishFeedTracking: undefined;
+    FishSalesTracking: undefined;
+    StockManagement: undefined;
+    Reports: undefined;
+    ReportDetail: { reportId: string };
+    Settings: undefined;
+    Notifications: undefined;
+    Backup: undefined;
+    AdvancedDashboard: undefined;
+    Planner: undefined;
+    PhotoGallery: undefined;
     // Ajouter d'autres écrans plus tard
 };
 
@@ -67,7 +91,7 @@ const Navigation: React.FC = () => {
     return (
         <NavigationContainer>
             <Stack.Navigator
-                initialRouteName="Home"
+                initialRouteName="SplashScreen"
                 screenOptions={{
                     headerStyle: { backgroundColor: '#2E7D32' },
                     headerTintColor: '#FFFFFF',
@@ -199,6 +223,18 @@ const Navigation: React.FC = () => {
                     name="PhotoGallery"
                     component={PhotoGalleryScreen}
                     options={{ title: 'Galerie Photo' }}
+                />
+
+                <Stack.Screen
+                    name="LoginScreen"
+                    component={LoginScreen}
+                    options={{ title: 'Connexion', headerShown: false }}
+                />
+
+                <Stack.Screen
+                    name="SplashScreen"
+                    component={SplashScreen}
+                    options={{ title: 'SplashScreen', headerShown: false }}
                 />
 
             </Stack.Navigator>
