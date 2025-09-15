@@ -12,47 +12,20 @@ import {
   Platform,
   Alert,
   ScrollView,
-  SafeAreaView,
-  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
-
-// Fonction pour obtenir des dimensions responsives
-const getResponsiveDimensions = () => {
-  const isSmallScreen = height < 700;
-  const isMediumScreen = height >= 700 && height < 800;
-  
-  return {
-    headerMarginBottom: isSmallScreen ? 30 : isMediumScreen ? 40 : 50,
-    logoSize: isSmallScreen ? 60 : 80,
-    formPadding: isSmallScreen ? 20 : 30,
-    inputHeight: isSmallScreen ? 45 : 50,
-    fontSize: {
-      welcome: isSmallScreen ? 20 : 24,
-      appName: isSmallScreen ? 14 : 16,
-      input: isSmallScreen ? 14 : 16,
-      button: isSmallScreen ? 16 : 18,
-    }
-  };
-};
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const keyboardAnim = useRef(new Animated.Value(0)).current;
-
-  const insets = useSafeAreaInsets();
-  const dimensions = getResponsiveDimensions();
 
   useEffect(() => {
     // Animation d'entrée
@@ -73,33 +46,6 @@ const LoginScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
-
-    // Listeners pour le clavier
-    const keyboardWillShow = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const keyboardWillHide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSubscription = Keyboard.addListener(keyboardWillShow, (event) => {
-      setKeyboardVisible(true);
-      Animated.timing(keyboardAnim, {
-        toValue: -event.endCoordinates.height * 0.3,
-        duration: Platform.OS === 'ios' ? 250 : 200,
-        useNativeDriver: true,
-      }).start();
-    });
-
-    const hideSubscription = Keyboard.addListener(keyboardWillHide, () => {
-      setKeyboardVisible(false);
-      Animated.timing(keyboardAnim, {
-        toValue: 0,
-        duration: Platform.OS === 'ios' ? 250 : 200,
-        useNativeDriver: true,
-      }).start();
-    });
-
-    return () => {
-      showSubscription?.remove();
-      hideSubscription?.remove();
-    };
   }, []);
 
   const handleLogin = () => {
@@ -108,7 +54,9 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
     
+    // Ici vous pouvez ajouter votre logique de connexion
     Alert.alert('Succès', 'Connexion réussie!');
+    // Navigation vers l'écran principal après la connexion
     navigation.replace('Home');
   };
 
@@ -128,178 +76,118 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <LinearGradient
-        colors={['green', 'green', 'green']}
-        style={styles.container}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+    <LinearGradient
+      colors={['#00c45cff', '#709887ff', '#00c45cff']}
+      style={styles.container}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <StatusBar barStyle="light-content" backgroundColor="#00c45cff" />
+      
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <StatusBar barStyle="light-content" backgroundColor="green" />
-        
-        <KeyboardAvoidingView 
-          style={styles.keyboardContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContainer}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            bounces={false}
+          <Animated.View
+            style={[
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  { translateY: slideAnim },
+                  { scale: scaleAnim }
+                ],
+              },
+            ]}
           >
-            <Animated.View
-              style={[
-                styles.content,
-                {
-                  opacity: fadeAnim,
-                  transform: [
-                    { translateY: slideAnim },
-                    { scale: scaleAnim },
-                    { translateY: keyboardAnim }
-                  ],
-                },
-              ]}
-            >
-              {/* Header avec logo - masqué partiellement quand clavier visible */}
-              {!keyboardVisible && (
-                <Animated.View 
-                  style={[
-                    styles.header, 
-                    { marginBottom: dimensions.headerMarginBottom }
-                  ]}
-                >
-                  <View style={[
-                    styles.logoContainer,
-                    { 
-                      width: dimensions.logoSize,
-                      height: dimensions.logoSize,
-                      borderRadius: dimensions.logoSize / 2
-                    }
-                  ]}>
-                    <Ionicons name="water" size={dimensions.logoSize * 0.5} color="#fff" />
-                    <Ionicons 
-                      name="leaf" 
-                      size={dimensions.logoSize * 0.375} 
-                      color="#fff" 
-                      style={styles.leafIcon} 
-                    />
-                  </View>
-                  <Text style={[styles.welcomeText, { fontSize: dimensions.fontSize.welcome }]}>
-                    Bienvenue
-                  </Text>
-                  <Text style={[styles.appName, { fontSize: dimensions.fontSize.appName }]}>
-                    AquaFarm Pro
-                  </Text>
-                </Animated.View>
-              )}
-
-              {/* Version compacte du header pour le clavier */}
-              {keyboardVisible && (
-                <View style={styles.compactHeader}>
-                  <Text style={styles.compactTitle}>AquaFarm Pro</Text>
-                </View>
-              )}
-
-              {/* Formulaire de connexion */}
-              <View style={[styles.formContainer, { padding: dimensions.formPadding }]}>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={[
-                      styles.input, 
-                      { 
-                        height: dimensions.inputHeight,
-                        fontSize: dimensions.fontSize.input
-                      }
-                    ]}
-                    placeholder="Email"
-                    placeholderTextColor="#999"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    returnKeyType="next"
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { 
-                        height: dimensions.inputHeight,
-                        fontSize: dimensions.fontSize.input
-                      }
-                    ]}
-                    placeholder="Mot de passe"
-                    placeholderTextColor="#999"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    onSubmitEditing={handleLogin}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeIcon}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color="#666"
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity style={styles.forgotPassword}>
-                  <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={() => {
-                    animateButton();
-                    handleLogin();
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={['#4facfe', '#00f2fe']}
-                    style={styles.buttonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={[
-                      styles.loginButtonText, 
-                      { fontSize: dimensions.fontSize.button }
-                    ]}>
-                      Se connecter
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                {!keyboardVisible && (
-                  <>
-                    <View style={styles.divider}>
-                      <View style={styles.dividerLine} />
-                      <Text style={styles.dividerText}>ou</Text>
-                      <View style={styles.dividerLine} />
-                    </View>
-
-                    <TouchableOpacity style={styles.registerButton}>
-                      <Text style={styles.registerButtonText}>
-                        Pas de compte ? <Text style={styles.registerLink}>contacter le support</Text>
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                )}
+            {/* Header avec logo */}
+            <View style={styles.header}>
+              <View style={styles.logoContainer}>
+                <Ionicons name="water" size={48} color="#fff" />
+                <Ionicons name="leaf" size={36} color="#fff" style={styles.leafIcon} />
               </View>
-            </Animated.View>
-          </ScrollView>
+              <Text style={styles.welcomeText}>Bienvenue</Text>
+              <Text style={styles.appName}>AquaFarm Pro</Text>
+            </View>
+
+            {/* Formulaire de connexion */}
+            <View style={styles.formContainer}>
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={24} color="#555" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#888"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={24} color="#555" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Mot de passe"
+                  placeholderTextColor="#888"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={24}
+                    color="#555"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* <TouchableOpacity style={styles.forgotPassword}>
+                <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+              </TouchableOpacity> */}
+
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={() => {
+                  animateButton();
+                  handleLogin();
+                }}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={['#65cf96ff', '#00c45cff']}
+                  style={styles.buttonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.loginButtonText}>Se connecter</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>ou</Text>
+                <View style={styles.dividerLine} />
+              </View> */}
+
+              {/* <TouchableOpacity style={styles.registerButton}>
+                <Text style={styles.registerButtonText}>
+                  Pas de compte ? <Text style={styles.registerLink}>Contacter le support</Text>
+                </Text>
+              </TouchableOpacity> */}
+            </View>
+          </Animated.View>
 
           {/* Décoration de fond */}
           <View style={styles.backgroundDecoration}>
@@ -307,17 +195,13 @@ const LoginScreen = ({ navigation }) => {
             <View style={[styles.circle, styles.circle2]} />
             <View style={[styles.circle, styles.circle3]} />
           </View>
-        </KeyboardAvoidingView>
-      </LinearGradient>
-    </SafeAreaView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: 'green',
-  },
   container: {
     flex: 1,
   },
@@ -327,104 +211,107 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    minHeight: height,
+    paddingVertical: 20,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Math.max(width * 0.08, 30),
+    paddingHorizontal: 20,
     zIndex: 2,
-    paddingVertical: 20,
   },
   header: {
     alignItems: 'center',
+    marginBottom: 40,
   },
   logoContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
     position: 'relative',
+    shadowColor: '#000',
   },
   leafIcon: {
     position: 'absolute',
-    top: 5,
-    right: 5,
+    top: 8,
+    right: 8,
   },
   welcomeText: {
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#fff',
-    marginBottom: 5,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   appName: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '300',
-  },
-  compactHeader: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  compactTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 18,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: '400',
   },
   formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
-    backdropFilter: 'blur(10px)',
-    maxWidth: 400,
-    alignSelf: 'center',
-    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 25,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(12px)',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 15,
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    elevation: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    marginBottom: 20,
+    paddingHorizontal: 12,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   input: {
     flex: 1,
+    height: 55,
+    fontSize: 16,
     color: '#333',
+    paddingVertical: 10,
   },
   eyeIcon: {
-    padding: 5,
+    padding: 8,
   },
   forgotPassword: {
     alignItems: 'flex-end',
-    marginBottom: 25,
+    marginBottom: 20,
   },
   forgotPasswordText: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#fff',
     fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.9,
   },
   loginButton: {
-    borderRadius: 15,
+    borderRadius: 12,
     marginBottom: 20,
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   buttonGradient: {
-    paddingVertical: 15,
-    borderRadius: 15,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
   loginButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   divider: {
     flexDirection: 'row',
@@ -433,24 +320,26 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    height: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   dividerText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.85)',
     marginHorizontal: 15,
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
   registerButton: {
     alignItems: 'center',
   },
   registerButtonText: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 16,
+    fontWeight: '400',
   },
   registerLink: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#00f2fe',
+    fontWeight: '600',
   },
   backgroundDecoration: {
     position: 'absolute',
@@ -463,25 +352,25 @@ const styles = StyleSheet.create({
   circle: {
     position: 'absolute',
     borderRadius: 1000,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   circle1: {
-    width: Math.min(width * 0.5, 200),
-    height: Math.min(width * 0.5, 200),
-    top: -Math.min(width * 0.25, 100),
-    right: -Math.min(width * 0.25, 100),
+    width: 220,
+    height: 220,
+    top: -120,
+    right: -110,
   },
   circle2: {
-    width: Math.min(width * 0.375, 150),
-    height: Math.min(width * 0.375, 150),
-    bottom: -Math.min(width * 0.1875, 75),
-    left: -Math.min(width * 0.1875, 75),
+    width: 180,
+    height: 180,
+    bottom: -90,
+    left: -90,
   },
   circle3: {
-    width: Math.min(width * 0.25, 100),
-    height: Math.min(width * 0.25, 100),
-    top: height * 0.3,
-    left: -Math.min(width * 0.125, 50),
+    width: 120,
+    height: 120,
+    top: height * 0.25,
+    left: -60,
   },
 });
 
