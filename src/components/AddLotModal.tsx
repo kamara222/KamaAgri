@@ -64,6 +64,11 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
     { label: 'Sélectionner une race', value: '' },
     { label: 'Ross 308', value: 'Ross 308' },
     { label: 'Cobb 500', value: 'Cobb 500' },
+    { label: 'poulets africains', value: 'poulets africains' },
+    { label: 'Pondeuses', value: 'Pondeuses' },
+    // { label: 'Autre', value: 'Autre' },
+
+
   ];
 
   // Validation du formulaire
