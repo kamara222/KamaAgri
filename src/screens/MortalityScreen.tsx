@@ -1,4 +1,3 @@
-// src/screens/MortalityScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -6,38 +5,34 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
+import Toast from 'react-native-toast-message';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddMortalityModal from '../components/AddMortalityModal';
+import { useMortalities, useCreateMortality, useLots } from '../services';
 
-// Données mock pour la liste des mortalités
-const mockMortalities = [
-  {
-    id: '1',
-    date: '2025-05-10',
-    lot: 'Ross 308 - Bâtiment A',
-    nombreMorts: 15,
-    cause: 'Maladie',
-  },
-  {
-    id: '2',
-    date: '2025-05-08',
-    lot: 'Cobb 500 - Bâtiment B',
-    nombreMorts: 10,
-    cause: 'Chaleur excessive',
-  },
-];
-
-// Types pour une mortalité
+// Interface pour une mortalité
 interface Mortality {
   id: string;
   date: string;
-  lot: string;
-  nombreMorts: number;
+  batiment: string;
+  race: string;
+  nombre: number;
   cause: string;
+}
+
+// Interface pour un lot
+interface Lot {
+  id: string;
+  batiment: string | null;
+  race: string | null;
+  date: string;
+  nombre: number;
+  poids_moyen: number;
 }
 
 const MortalityScreen: React.FC = () => {
@@ -45,22 +40,46 @@ const MortalityScreen: React.FC = () => {
   const [filterPeriod, setFilterPeriod] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Options pour les filtres
-  const lots = [
+  // Récupérer les mortalités via API
+  const { data: mortalities, isLoading, error } = useMortalities(filterLot ? filterLot.split(' - ')[0] : undefined);
+
+  // Récupérer les lots pour les options de filtre
+  const { data: lots } = useLots();
+
+  // Mutation pour créer une mortalité
+  const createMortalityMutation = useCreateMortality();
+
+  // Gérer les erreurs
+  if (error) {
+    Toast.show({
+      type: 'errorToast',
+      props: {
+        message: 'Erreur lors du chargement des mortalités',
+      },
+    });
+  }
+
+  // Créer les options pour les lots dynamiquement
+  const lotOptions = [
     { label: 'Tous les lots', value: '' },
-    { label: 'Ross 308 - Bâtiment A', value: 'Ross 308 - Bâtiment A' },
-    { label: 'Cobb 500 - Bâtiment B', value: 'Cobb 500 - Bâtiment B' },
+    ...(lots?.map((lot) => ({
+      label: `${lot.race || 'Inconnu'} - ${lot.batiment || 'Inconnu'}`,
+      value: `${lot.race || 'Inconnu'} - ${lot.batiment || 'Inconnu'}`,
+    })) || []),
   ];
+
+  // Options pour les périodes
   const periods = [
     { label: 'Toutes périodes', value: '' },
     { label: 'Dernière semaine', value: 'week' },
     { label: 'Dernier mois', value: 'month' },
   ];
 
-  // Filtrer les mortalités
-  const filteredMortalities = mockMortalities.filter((mortality) => {
+  // Filtrer les mortalités localement
+  const filteredMortalities = mortalities?.filter((mortality) => {
     try {
-      const matchesLot = !filterLot || mortality.lot === filterLot;
+      const lotString = `${mortality.race || 'Inconnu'} - ${mortality.batiment || 'Inconnu'}`;
+      const matchesLot = !filterLot || lotString === filterLot;
       const matchesPeriod =
         !filterPeriod ||
         (filterPeriod === 'week' && mortality.date >= '2025-05-06') ||
@@ -70,17 +89,56 @@ const MortalityScreen: React.FC = () => {
       console.error('Erreur de filtrage:', error);
       return true;
     }
-  });
+  }) || [];
+
+  // Gérer la soumission du modal
+  const handleAddMortality = (form: {
+    date: Date;
+    lot: string;
+    nombreMorts: string;
+    cause: string;
+    customCause?: string;
+  }) => {
+    const [race, batiment] = form.lot.split(' - ');
+    createMortalityMutation.mutate(
+      {
+        date: form.date.toISOString().split('T')[0], // Format ISO
+        batiment,
+        race,
+        nombre: parseInt(form.nombreMorts),
+        cause: form.cause === 'Autre' ? form.customCause || 'Inconnue' : form.cause,
+      },
+      {
+        onSuccess: () => {
+          Toast.show({
+            type: 'successToast',
+            props: {
+              message: 'Mortalité ajoutée avec succès',
+            },
+          });
+          setIsModalVisible(false);
+        },
+        onError: (err) => {
+          Toast.show({
+            type: 'errorToast',
+            props: {
+              message: 'Erreur lors de l’ajout de la mortalité',
+            },
+          });
+        },
+      }
+    );
+  };
 
   // Rendu de chaque carte de mortalité
   const renderMortalityItem = ({ item }: { item: Mortality }) => (
     <Animatable.View animation="fadeInUp" duration={500} style={styles.mortalityCard}>
       <View style={styles.cardHeader}>
         <Icon name="warning" size={28} color={COLORS.error} />
-        <Text style={styles.cardTitle}>{item.lot}</Text>
+        <Text style={styles.cardTitle}>{`${item.race || 'Inconnu'} - ${item.batiment || 'Inconnu'}`}</Text>
       </View>
       <Text style={styles.cardDetail}>Date: {item.date}</Text>
-      <Text style={styles.cardDetail}>Morts: {item.nombreMorts}</Text>
+      <Text style={styles.cardDetail}>Morts: {item.nombre}</Text>
       <Text style={styles.cardDetail}>Cause: {item.cause}</Text>
     </Animatable.View>
   );
@@ -90,7 +148,7 @@ const MortalityScreen: React.FC = () => {
       {/* Filtres */}
       <View style={styles.filterContainer}>
         <CustomSelect
-          options={lots}
+          options={lotOptions}
           value={filterLot}
           onChange={setFilterLot}
           placeholder="Filtrer par lot"
@@ -104,21 +162,29 @@ const MortalityScreen: React.FC = () => {
       </View>
 
       {/* Liste des mortalités */}
-      <FlatList
-        data={filteredMortalities}
-        renderItem={renderMortalityItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>Aucune mortalité enregistrée</Text>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Chargement des mortalités...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredMortalities}
+          renderItem={renderMortalityItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>Aucune mortalité enregistrée</Text>
+          }
+        />
+      )}
 
       {/* Bouton flottant */}
       <Animatable.View animation="bounceIn" duration={1000}>
         <TouchableOpacity
           style={styles.fab}
           onPress={() => setIsModalVisible(true)}
+          accessibilityLabel="Ajouter une nouvelle mortalité"
         >
           <Icon name="add" size={30} color={COLORS.white} />
         </TouchableOpacity>
@@ -128,10 +194,8 @@ const MortalityScreen: React.FC = () => {
       <AddMortalityModal
         isVisible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
-        onSubmit={(mortality) => {
-          console.log('Nouvelle mortalité:', mortality);
-          setIsModalVisible(false);
-        }}
+        onSubmit={handleAddMortality}
+        lots={lotOptions} // Passer les options dynamiques
       />
     </View>
   );
@@ -200,6 +264,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: SIZES.margin,
   },
 });
 

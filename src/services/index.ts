@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getEleves, getLots, createLot } from '../api';
+import { getEleves, getLots, createLot, getMortalities, createMortality } from '../api';
 
 export const useEleves = () => {
   return useQuery({
@@ -22,8 +22,26 @@ export const useCreateLot = () => {
   return useMutation({
     mutationFn: createLot,
     onSuccess: () => {
-      // Invalider le cache pour rafraîchir la liste des lots
       queryClient.invalidateQueries({ queryKey: ['lots'] });
+    },
+  });
+};
+
+// Hook pour récupérer les mortalités
+export const useMortalities = (raceFilter?: string) => {
+  return useQuery({
+    queryKey: ['mortalities', raceFilter],
+    queryFn: () => getMortalities(raceFilter).then((res) => res),
+  });
+};
+
+// Hook pour créer une mortalité
+export const useCreateMortality = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createMortality,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mortalities'] });
     },
   });
 };

@@ -1,4 +1,3 @@
-// src/components/AddMortalityModal.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -30,12 +29,14 @@ interface AddMortalityModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (mortality: MortalityForm) => void;
+  lots: { label: string; value: string }[]; // Options dynamiques
 }
 
 const AddMortalityModal: React.FC<AddMortalityModalProps> = ({
   isVisible,
   onClose,
   onSubmit,
+  lots,
 }) => {
   // État du formulaire
   const [form, setForm] = useState<MortalityForm>({
@@ -48,12 +49,7 @@ const AddMortalityModal: React.FC<AddMortalityModalProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Options pour les dropdowns (mockées, à remplacer par API)
-  const lots = [
-    { label: 'Sélectionner un lot', value: '' },
-    { label: 'Ross 308 - Bâtiment A', value: 'Ross 308 - Bâtiment A' },
-    { label: 'Cobb 500 - Bâtiment B', value: 'Cobb 500 - Bâtiment B' },
-  ];
+  // Options pour les causes
   const causes = [
     { label: 'Sélectionner une cause', value: '' },
     { label: 'Maladie', value: 'Maladie' },
