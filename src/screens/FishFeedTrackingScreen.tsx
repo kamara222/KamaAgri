@@ -1,4 +1,3 @@
-// src/screens/FishFeedTrackingScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -12,32 +11,16 @@ import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddFishFeedModal from '../components/AddFishFeedModal';
-
-// Données mock pour la liste des distributions (à remplacer par API)
-const mockFeedDistributions = [
-  {
-    id: '1',
-    date: '2025-05-10',
-    bassin: 'Bassin Nord',
-    typeAliment: 'Granulés',
-    quantite: 20,
-  },
-  {
-    id: '2',
-    date: '2025-05-08',
-    bassin: 'Bassin Sud',
-    typeAliment: 'Farine',
-    quantite: 15,
-  },
-];
+import { useFishFeedDistributions, useBassins } from '../services';
 
 // Types pour une distribution d’aliment
-interface FeedDistribution {
+interface FishFeedDistribution {
   id: string;
-  date: string;
-  bassin: string;
-  typeAliment: string;
-  quantite: number;
+  date?: string;
+  nom_alimentation: string;
+  type: string;
+  poids: number;
+  nombre?: number;
 }
 
 const FishFeedTrackingScreen: React.FC = () => {
@@ -46,12 +29,17 @@ const FishFeedTrackingScreen: React.FC = () => {
   const [filterPeriod, setFilterPeriod] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Options pour les filtres
+  // Hook pour récupérer les bassins dynamiquement
+  const { data: bassinsData = [] } = useBassins();
   const bassins = [
     { label: 'Tous les bassins', value: '' },
-    { label: 'Bassin Nord', value: 'Bassin Nord' },
-    { label: 'Bassin Sud', value: 'Bassin Sud' },
+    ...bassinsData.map((basin: { nom_bassin: string }) => ({
+      label: basin.nom_bassin,
+      value: basin.nom_bassin,
+    })),
   ];
+
+  // Options pour les filtres
   const typesAliment = [
     { label: 'Tous les types', value: '' },
     { label: 'Granulés', value: 'Granulés' },
@@ -63,16 +51,25 @@ const FishFeedTrackingScreen: React.FC = () => {
     { label: 'Dernier mois', value: 'month' },
   ];
 
-  // Filtrer les distributions avec gestion des erreurs
-  const filteredDistributions = mockFeedDistributions.filter((distribution) => {
+  // Utiliser le hook pour récupérer les distributions avec filtre par type
+  const { data: distributions = [], isLoading, isError } = useFishFeedDistributions(filterTypeAliment);
+
+  // Log pour déboguer les données reçues
+  console.log('Distributions reçues:', distributions);
+
+  // Filtrer localement pour bassin et période
+  const filteredDistributions = distributions.filter((distribution) => {
     try {
-      const matchesBassin = !filterBassin || distribution.bassin === filterBassin;
-      const matchesTypeAliment = !filterTypeAliment || distribution.typeAliment === filterTypeAliment;
+      const matchesBassin = !filterBassin || distribution.nom_alimentation.includes(filterBassin);
       const matchesPeriod =
         !filterPeriod ||
-        (filterPeriod === 'week' && distribution.date >= '2025-05-06') ||
-        (filterPeriod === 'month' && distribution.date >= '2025-04-10');
-      return matchesBassin && matchesTypeAliment && matchesPeriod;
+        (filterPeriod === 'week' &&
+          distribution.date &&
+          new Date(distribution.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) ||
+        (filterPeriod === 'month' &&
+          distribution.date &&
+          new Date(distribution.date) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+      return matchesBassin && matchesPeriod;
     } catch (error) {
       console.error('Erreur de filtrage:', error);
       return true;
@@ -80,28 +77,33 @@ const FishFeedTrackingScreen: React.FC = () => {
   });
 
   // Rendu de chaque carte de distribution
-  const renderFeedItem = ({ item }: { item: FeedDistribution }) => (
+  const renderFeedItem = ({ item }: { item: FishFeedDistribution }) => (
     <Animatable.View animation="fadeInUp" duration={500} style={styles.feedCard}>
       <View style={styles.cardHeader}>
         <Icon name="restaurant" size={28} color={COLORS.accent} />
-        <Text style={styles.cardTitle}>{item.bassin}</Text>
+        <Text style={styles.cardTitle}>{item.nom_alimentation}</Text>
       </View>
-      <Text style={styles.cardDetail}>Date: {item.date}</Text>
-      <Text style={styles.cardDetail}>Type d’aliment: {item.typeAliment}</Text>
-      <Text style={styles.cardDetail}>Quantité: {item.quantite} kg</Text>
+      {item.date && <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>}
+      <Text style={styles.cardDetail}>Type d’aliment: {item.type}</Text>
+      <Text style={styles.cardDetail}>Quantité: {item.poids} kg</Text>
+      {item.nombre && <Text style={styles.cardDetail}>Nombre: {item.nombre}</Text>}
     </Animatable.View>
   );
 
   return (
     <View style={styles.container}>
+      {/* Indicateur de chargement */}
+      {isLoading && <Text style={styles.loadingText}>Chargement...</Text>}
+      {isError && <Text style={styles.errorText}>Erreur lors du chargement des distributions</Text>}
+
       {/* Filtres */}
       <View style={styles.filterContainer}>
-        <CustomSelect
+        {/* <CustomSelect
           options={bassins}
           value={filterBassin}
           onChange={setFilterBassin}
           placeholder="Filtrer par bassin"
-        />
+        /> */}
         <CustomSelect
           options={typesAliment}
           value={filterTypeAliment}
@@ -142,9 +144,8 @@ const FishFeedTrackingScreen: React.FC = () => {
         isVisible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onSubmit={(distribution) => {
-          console.log('Nouvelle distribution:', distribution);
+          console.log('Nouvelle distribution soumise:', distribution);
           setIsModalVisible(false);
-          // TODO: Envoyer au backend
         }}
       />
     </View>
@@ -213,6 +214,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
+  },
+  errorText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.error,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
   },
 });
 

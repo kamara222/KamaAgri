@@ -1,5 +1,27 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getEleves, getLots, createLot, getMortalities, createMortality, getFeedDistributions, createFeedDistribution } from '../api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  getEleves,
+  getLots,
+  createLot,
+  getMortalities,
+  createMortality,
+  getFeedDistributions,
+  createFeedDistribution,
+  getBassins,
+  createBassin,
+  getEspeces,
+  getFishMortalities,
+  createFishMortality,
+  getFishFeedDistributions,
+  createFishFeedDistribution,
+  getFishSales,
+  createFishSale,
+  getChickenSales,
+  createChickenSale,
+  getRaces,
+  login,
+  logout,
+} from '../api';
 
 export const useEleves = () => {
   return useQuery({
@@ -27,7 +49,7 @@ export const useCreateLot = () => {
   });
 };
 
-// Hook pour récupérer les mortalités
+// Hook pour récupérer les mortalités (poulets)
 export const useMortalities = (raceFilter?: string) => {
   return useQuery({
     queryKey: ['mortalities', raceFilter],
@@ -35,7 +57,7 @@ export const useMortalities = (raceFilter?: string) => {
   });
 };
 
-// Hook pour créer une mortalité
+// Hook pour créer une mortalité (poulets)
 export const useCreateMortality = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -61,6 +83,154 @@ export const useCreateFeedDistribution = () => {
     mutationFn: createFeedDistribution,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedDistributions'] });
+    },
+  });
+};
+
+// Hook pour récupérer les bassins
+export const useBassins = (especeFilter?: string) => {
+  return useQuery({
+    queryKey: ['bassins', especeFilter],
+    queryFn: () => getBassins(especeFilter).then((res) => res),
+  });
+};
+
+// Hook pour créer un bassin
+export const useCreateBassin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createBassin,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bassins'] });
+    },
+  });
+};
+
+// Hook pour récupérer les espèces
+export const useEspeces = () => {
+  return useQuery({
+    queryKey: ['especes'],
+    queryFn: () => getEspeces().then((res) => res),
+  });
+};
+
+// Hook pour récupérer les races de poulets
+export const useRaces = () => {
+  return useQuery({
+    queryKey: ['races'],
+    queryFn: () => getRaces().then((res) => res),
+  });
+};
+
+// Hook pour récupérer les mortalités de poissons
+export const useFishMortalities = (especeFilter?: string) => {
+  return useQuery({
+    queryKey: ['fishMortalities', especeFilter],
+    queryFn: () => getFishMortalities(especeFilter).then((res) => res),
+  });
+};
+
+// Hook pour créer une mortalité de poisson
+export const useCreateFishMortality = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createFishMortality,
+    onSuccess: () => {
+      console.log('Invalidation des queries fishMortalities');
+      queryClient.invalidateQueries({ queryKey: ['fishMortalities'] });
+    },
+  });
+};
+
+// Hook pour récupérer les distributions d'aliments pour poissons
+export const useFishFeedDistributions = (typeFilter?: string) => {
+  return useQuery({
+    queryKey: ['fishFeedDistributions', typeFilter],
+    queryFn: () => getFishFeedDistributions(typeFilter).then((res) => res),
+  });
+};
+
+// Hook pour créer une distribution d'aliment pour poissons
+export const useCreateFishFeedDistribution = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createFishFeedDistribution,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fishFeedDistributions'] });
+    },
+  });
+};
+
+// Hook pour récupérer les ventes de poissons
+export const useFishSales = (filters?: {
+  type_de_vente?: string;
+  espece_poisson?: string;
+  bassin?: string;
+}) => {
+  return useQuery({
+    queryKey: ['fishSales', filters],
+    queryFn: () => getFishSales(filters).then((res) => res),
+  });
+};
+
+// Hook pour créer une vente de poisson
+export const useCreateFishSale = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createFishSale,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fishSales'] });
+    },
+  });
+};
+
+// Hook pour récupérer les ventes de poulets
+export const useChickenSales = (filters?: {
+  type_de_vente?: string;
+  race_poulet?: string;
+  batiment?: string;
+}) => {
+  return useQuery({
+    queryKey: ['chickenSales', filters],
+    queryFn: () => getChickenSales(filters).then((res) => res),
+  });
+};
+
+// Hook pour créer une vente de poulet
+export const useCreateChickenSale = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createChickenSale,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chickenSales'] });
+    },
+  });
+};
+
+// Hook pour l'authentification
+export const useLogin = () => {
+  return useMutation({
+    mutationFn: login,
+    onSuccess: (data) => {
+      console.log('Connexion réussie:', data);
+    },
+    onError: (error: any) => {
+      console.error('Erreur de connexion:', error);
+    },
+  });
+};
+
+// Hook pour la déconnexion
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.clear();
+      console.log('Déconnexion réussie');
+    },
+    onError: (error: any) => {
+      console.error('Erreur lors de la déconnexion:', error);
     },
   });
 };

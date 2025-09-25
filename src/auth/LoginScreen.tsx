@@ -10,22 +10,27 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import { useLogin } from '../services';
 
 const { width, height } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
+  const [identifiant, setIdentifiant] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  const { mutate: login } = useLogin();
 
   useEffect(() => {
     // Animation d'entrée
@@ -48,16 +53,66 @@ const LoginScreen = ({ navigation }) => {
     ]).start();
   }, []);
 
-  const handleLogin = () => {
-    if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+  const handleLogin = async () => {
+    if (!identifiant || !password) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erreur',
+        text2: 'Veuillez remplir tous les champs',
+      });
       return;
     }
-    
-    // Ici vous pouvez ajouter votre logique de connexion
-    Alert.alert('Succès', 'Connexion réussie!');
-    // Navigation vers l'écran principal après la connexion
-    navigation.replace('Home');
+
+    setIsSubmitting(true);
+    try {
+      await login(
+        { identifiant, password },
+        {
+          onSuccess: async (data) => {
+            console.log('Réponse de l\'API:', data);
+            if (data.accessToken) {
+              await AsyncStorage.setItem('authToken', data.accessToken);
+              console.log('Token stocké:', data.accessToken);
+            }
+            if (data.user) {
+              const userInfo = {
+                prenom: data.user.prenom,
+                nom: data.user.nom,
+                email: data.user.email,
+                numeroTelephone: data.user.numeroTelephone,
+                role: data.user.role,
+              };
+              await AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
+              console.log('Informations utilisateur stockées:', userInfo);
+            }
+            Toast.show({
+              type: 'success',
+              text1: 'Succès',
+              text2: data.message || 'Connexion réussie !',
+            });
+            setIsSubmitting(false);
+            navigation.replace('Home');
+          },
+          onError: (error: any) => {
+            setIsSubmitting(false);
+            console.error('Erreur de connexion:', error.response?.data);
+            Toast.show({
+              type: 'error',
+              text1: 'Erreur',
+              text2: error.response?.data?.message || 'Échec de la connexion',
+            });
+          },
+        }
+      );
+    } catch (error) {
+      setIsSubmitting(false);
+      console.error('Erreur lors de la gestion de la connexion:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Erreur',
+        text2: 'Une erreur inattendue est survenue',
+      });
+    }
   };
 
   const animateButton = () => {
@@ -117,16 +172,15 @@ const LoginScreen = ({ navigation }) => {
             {/* Formulaire de connexion */}
             <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
-                <Ionicons name="mail-outline" size={24} color="#555" style={styles.inputIcon} />
+                <Ionicons name="person-outline" size={24} color="#555" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Email"
+                  placeholder="Identifiant"
                   placeholderTextColor="#888"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
+                  value={identifiant}
+                  onChangeText={setIdentifiant}
                   autoCapitalize="none"
-                  autoComplete="email"
+                  autoComplete="off"
                 />
               </View>
 
@@ -153,17 +207,14 @@ const LoginScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* <TouchableOpacity style={styles.forgotPassword}>
-                <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
-              </TouchableOpacity> */}
-
               <TouchableOpacity
-                style={styles.loginButton}
+                style={[styles.loginButton, isSubmitting && styles.disabledButton]}
                 onPress={() => {
                   animateButton();
                   handleLogin();
                 }}
                 activeOpacity={0.7}
+                disabled={isSubmitting}
               >
                 <LinearGradient
                   colors={['#65cf96ff', '#00c45cff']}
@@ -171,21 +222,11 @@ const LoginScreen = ({ navigation }) => {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.loginButtonText}>Se connecter</Text>
+                  <Text style={styles.loginButtonText}>
+                    {isSubmitting ? 'Connexion...' : 'Se connecter'}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
-
-              {/* <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>ou</Text>
-                <View style={styles.dividerLine} />
-              </View> */}
-
-              {/* <TouchableOpacity style={styles.registerButton}>
-                <Text style={styles.registerButtonText}>
-                  Pas de compte ? <Text style={styles.registerLink}>Contacter le support</Text>
-                </Text>
-              </TouchableOpacity> */}
             </View>
           </Animated.View>
 
@@ -255,7 +296,6 @@ const styles = StyleSheet.create({
     padding: 25,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    backdropFilter: 'blur(12px)',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -283,16 +323,6 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 8,
   },
-  forgotPassword: {
-    alignItems: 'flex-end',
-    marginBottom: 20,
-  },
-  forgotPasswordText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    opacity: 0.9,
-  },
   loginButton: {
     borderRadius: 12,
     marginBottom: 20,
@@ -313,33 +343,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  dividerText: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginHorizontal: 15,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  registerButton: {
-    alignItems: 'center',
-  },
-  registerButtonText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 16,
-    fontWeight: '400',
-  },
-  registerLink: {
-    color: '#00f2fe',
-    fontWeight: '600',
+  disabledButton: {
+    opacity: 0.6,
   },
   backgroundDecoration: {
     position: 'absolute',

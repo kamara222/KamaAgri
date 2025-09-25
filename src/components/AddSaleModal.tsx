@@ -1,5 +1,4 @@
-// src/components/AddSaleModal.tsx
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,22 +8,27 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
-} from 'react-native';
-import Modal from 'react-native-modal';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import * as Animatable from 'react-native-animatable';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
-import CustomSelect from './CustomSelect';
+} from "react-native";
+import Modal from "react-native-modal";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Animatable from "react-native-animatable";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
+import CustomSelect from "./CustomSelect";
+import { useCreateChickenSale, useRaces } from "../services";
+import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
 interface SaleForm {
-  date: Date;
-  lot: string;
-  nombreVendu: string;
-  prixUnitaire: string;
-  client: string;
-  modePaiement: string;
+  date: string;
+  type_de_vente: string;
+  batiment: string;
+  race_poulet?: string;
+  nombre_poulet: string;
+  prix_unitaire: string;
+  prix_total: string;
+  nom_complet_client: string;
+  mode_paiement: string;
 }
 
 interface AddSaleModalProps {
@@ -40,40 +44,69 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
 }) => {
   // État du formulaire
   const [form, setForm] = useState<SaleForm>({
-    date: new Date(),
-    lot: '',
-    nombreVendu: '',
-    prixUnitaire: '',
-    client: '',
-    modePaiement: '',
+    date: "",
+    type_de_vente: "",
+    batiment: "",
+    race_poulet: "",
+    nombre_poulet: "",
+    prix_unitaire: "",
+    prix_total: "",
+    nom_complet_client: "",
+    mode_paiement: "",
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Options pour les dropdowns (mockées, à remplacer par API)
-  const lots = [
-    { label: 'Sélectionner un lot', value: '' },
-    { label: 'Ross 308 - Bâtiment A', value: 'Ross 308 - Bâtiment A' },
-    { label: 'Cobb 500 - Bâtiment B', value: 'Cobb 500 - Bâtiment B' },
+  // Liste statique des bâtiments
+  const batiments = [
+    { label: "Sélectionner un bâtiment", value: "" },
+    { label: "Bâtiment A", value: "Bâtiment A" },
+    { label: "Bâtiment B", value: "Bâtiment B" },
+  ];
+
+  // Hook pour récupérer les races
+  const { data: racesData = [] } = useRaces();
+  const races = [
+    { label: "Sélectionner une race", value: "" },
+    ...racesData.map((race: { label: string; value: string }) => ({
+      label: race.label,
+      value: race.value,
+    })),
+  ];
+
+  // Options pour les types de vente et modes de paiement
+  const typesVente = [
+    { label: "Sélectionner un type", value: "" },
+    { label: "Vente directe", value: "Vente directe" },
+    { label: "Vente en gros", value: "Vente en gros" },
   ];
   const modesPaiement = [
-    { label: 'Sélectionner un mode', value: '' },
-    { label: 'Espèces', value: 'Espèces' },
-    { label: 'Carte', value: 'Carte' },
-    { label: 'Virement', value: 'Virement' },
+    { label: "Sélectionner un mode", value: "" },
+    { label: "Espèces", value: "Espèces" },
+    { label: "Mobile Money", value: "Mobile Money" },
+    { label: "Chèque", value: "Chèque" },
   ];
+
+  // Hook pour créer une vente
+  const { mutate: createChickenSale, isLoading: isSubmitting } =
+    useCreateChickenSale();
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!form.date) newErrors.date = 'Date requise';
-    if (!form.lot) newErrors.lot = 'Lot requis';
-    if (!form.nombreVendu || parseInt(form.nombreVendu) <= 0)
-      newErrors.nombreVendu = 'Nombre positif requis';
-    if (!form.prixUnitaire || parseFloat(form.prixUnitaire) <= 0)
-      newErrors.prixUnitaire = 'Prix positif requis';
-    if (!form.client) newErrors.client = 'Client requis';
-    if (!form.modePaiement) newErrors.modePaiement = 'Mode de paiement requis';
+    if (!form.date) newErrors.date = "Date requise";
+    if (!form.type_de_vente) newErrors.type_de_vente = "Type de vente requis";
+    if (!form.batiment) newErrors.batiment = "Bâtiment requis";
+    if (!form.nombre_poulet || parseInt(form.nombre_poulet) <= 0)
+      newErrors.nombre_poulet = "Nombre positif requis";
+    if (!form.prix_unitaire || parseFloat(form.prix_unitaire) <= 0)
+      newErrors.prix_unitaire = "Prix unitaire positif requis";
+    if (!form.prix_total || parseFloat(form.prix_total) <= 0)
+      newErrors.prix_total = "Prix total positif requis";
+    if (!form.nom_complet_client)
+      newErrors.nom_complet_client = "Client requis";
+    if (!form.mode_paiement)
+      newErrors.mode_paiement = "Mode de paiement requis";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -81,7 +114,58 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
   // Gestion de la soumission
   const handleSubmit = () => {
     if (validateForm()) {
-      onSubmit(form);
+      const saleData = {
+        date: form.date,
+        type_de_vente: form.type_de_vente,
+        batiment: form.batiment,
+        race_poulet: form.race_poulet || null,
+        nombre_poulet: parseInt(form.nombre_poulet),
+        prix_unitaire: parseFloat(form.prix_unitaire),
+        prix_total: parseFloat(form.prix_total),
+        nom_complet_client: form.nom_complet_client,
+        mode_paiement: form.mode_paiement,
+      };
+      console.log("Données envoyées à l'API:", saleData); // Log pour déboguer
+      createChickenSale(saleData, {
+        
+
+        onSuccess: (data) => {
+          console.log("Vente poulet créée avec succès:", data);
+          Toast.show({
+            type: "successToast",
+            props: {
+              message: "Succès",
+              description: "Vente ajoutée avec succès",
+            },
+          });
+          onSubmit(form);
+          setForm({
+            date: "",
+            type_de_vente: "",
+            batiment: "",
+            race_poulet: "",
+            nombre_poulet: "",
+            prix_unitaire: "",
+            prix_total: "",
+            nom_complet_client: "",
+            mode_paiement: "",
+          });
+        },
+
+        onError: (error: any) => {
+          console.error("Erreur lors de la création de la vente:", error);
+          console.error("Détails de l'erreur:", error.response?.data);
+          Toast.show({
+            type: "errorToast",
+            props: {
+              message: "Erreur",
+              description:
+                error.response?.data?.message ||
+                "Erreur lors de l'ajout de la vente",
+            },
+          });
+        },
+      });
     }
   };
 
@@ -94,7 +178,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
       animationOut="slideOutDown"
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -106,7 +190,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
             <View style={styles.modalHandle} />
             {/* En-tête du modal */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ajouter Vente</Text>
+              <Text style={styles.modalTitle}>Ajouter Vente Poulet</Text>
               <TouchableOpacity onPress={onClose}>
                 <Icon name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
@@ -120,20 +204,22 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 onPress={() => setShowDatePicker(true)}
               >
                 <Text style={styles.inputText}>
-                  {form.date.toLocaleDateString('fr-FR')}
+                  {form.date
+                    ? new Date(form.date).toLocaleDateString("fr-FR")
+                    : "Sélectionner une date"}
                 </Text>
                 <Icon name="calendar-today" size={20} color={COLORS.text} />
               </TouchableOpacity>
               {showDatePicker && (
                 <DateTimePicker
-                  value={form.date}
+                  value={form.date ? new Date(form.date) : new Date()}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  display={Platform.OS === "ios" ? "inline" : "default"}
                   onChange={(event, date) => {
                     setShowDatePicker(false);
                     if (date) {
-                      setForm({ ...form, date });
-                      setErrors({ ...errors, date: '' });
+                      setForm({ ...form, date: date.toISOString() });
+                      setErrors({ ...errors, date: "" });
                     }
                   }}
                   textColor={COLORS.text}
@@ -141,21 +227,53 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
                   themeVariant="light"
                 />
               )}
-              {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+              {errors.date && (
+                <Text style={styles.errorText}>{errors.date}</Text>
+              )}
             </View>
 
-            {/* Champ Lot */}
+            {/* Champ Type de vente */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Lot concerné *</Text>
+              <Text style={styles.label}>Type de vente *</Text>
               <CustomSelect
-                options={lots}
-                value={form.lot}
+                options={typesVente}
+                value={form.type_de_vente}
                 onChange={(value) => {
-                  setForm({ ...form, lot: value });
-                  setErrors({ ...errors, lot: '' });
+                  setForm({ ...form, type_de_vente: value });
+                  setErrors({ ...errors, type_de_vente: "" });
                 }}
-                placeholder="Sélectionner un lot"
-                error={errors.lot}
+                placeholder="Sélectionner un type"
+                error={errors.type_de_vente}
+              />
+            </View>
+
+            {/* Champ Bâtiment */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Bâtiment concerné *</Text>
+              <CustomSelect
+                options={batiments}
+                value={form.batiment}
+                onChange={(value) => {
+                  setForm({ ...form, batiment: value });
+                  setErrors({ ...errors, batiment: "" });
+                }}
+                placeholder="Sélectionner un bâtiment"
+                error={errors.batiment}
+              />
+            </View>
+
+            {/* Champ Race */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Race (optionnel)</Text>
+              <CustomSelect
+                options={races}
+                value={form.race_poulet}
+                onChange={(value) => {
+                  setForm({ ...form, race_poulet: value });
+                  setErrors({ ...errors, race_poulet: "" });
+                }}
+                placeholder="Sélectionner une race"
+                error={errors.race_poulet}
               />
             </View>
 
@@ -163,18 +281,21 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nombre vendu *</Text>
               <TextInput
-                style={[styles.input, errors.nombreVendu && styles.inputError]}
+                style={[
+                  styles.input,
+                  errors.nombre_poulet && styles.inputError,
+                ]}
                 keyboardType="number-pad"
-                value={form.nombreVendu}
+                value={form.nombre_poulet}
                 onChangeText={(text) => {
-                  setForm({ ...form, nombreVendu: text });
-                  setErrors({ ...errors, nombreVendu: '' });
+                  setForm({ ...form, nombre_poulet: text });
+                  setErrors({ ...errors, nombre_poulet: "" });
                 }}
                 placeholder="Ex: 100"
                 placeholderTextColor={COLORS.textLight}
               />
-              {errors.nombreVendu && (
-                <Text style={styles.errorText}>{errors.nombreVendu}</Text>
+              {errors.nombre_poulet && (
+                <Text style={styles.errorText}>{errors.nombre_poulet}</Text>
               )}
             </View>
 
@@ -182,18 +303,40 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Prix unitaire (XAF) *</Text>
               <TextInput
-                style={[styles.input, errors.prixUnitaire && styles.inputError]}
+                style={[
+                  styles.input,
+                  errors.prix_unitaire && styles.inputError,
+                ]}
                 keyboardType="decimal-pad"
-                value={form.prixUnitaire}
+                value={form.prix_unitaire}
                 onChangeText={(text) => {
-                  setForm({ ...form, prixUnitaire: text });
-                  setErrors({ ...errors, prixUnitaire: '' });
+                  setForm({ ...form, prix_unitaire: text });
+                  setErrors({ ...errors, prix_unitaire: "" });
                 }}
                 placeholder="Ex: 5000"
                 placeholderTextColor={COLORS.textLight}
               />
-              {errors.prixUnitaire && (
-                <Text style={styles.errorText}>{errors.prixUnitaire}</Text>
+              {errors.prix_unitaire && (
+                <Text style={styles.errorText}>{errors.prix_unitaire}</Text>
+              )}
+            </View>
+
+            {/* Champ Prix total */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Prix total (XAF) *</Text>
+              <TextInput
+                style={[styles.input, errors.prix_total && styles.inputError]}
+                keyboardType="decimal-pad"
+                value={form.prix_total}
+                onChangeText={(text) => {
+                  setForm({ ...form, prix_total: text });
+                  setErrors({ ...errors, prix_total: "" });
+                }}
+                placeholder="Ex: 500000"
+                placeholderTextColor={COLORS.textLight}
+              />
+              {errors.prix_total && (
+                <Text style={styles.errorText}>{errors.prix_total}</Text>
               )}
             </View>
 
@@ -201,17 +344,22 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Client *</Text>
               <TextInput
-                style={[styles.input, errors.client && styles.inputError]}
-                value={form.client}
+                style={[
+                  styles.input,
+                  errors.nom_complet_client && styles.inputError,
+                ]}
+                value={form.nom_complet_client}
                 onChangeText={(text) => {
-                  setForm({ ...form, client: text });
-                  setErrors({ ...errors, client: '' });
+                  setForm({ ...form, nom_complet_client: text });
+                  setErrors({ ...errors, nom_complet_client: "" });
                 }}
                 placeholder="Ex: Client A"
                 placeholderTextColor={COLORS.textLight}
               />
-              {errors.client && (
-                <Text style={styles.errorText}>{errors.client}</Text>
+              {errors.nom_complet_client && (
+                <Text style={styles.errorText}>
+                  {errors.nom_complet_client}
+                </Text>
               )}
             </View>
 
@@ -220,21 +368,34 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
               <Text style={styles.label}>Mode de paiement *</Text>
               <CustomSelect
                 options={modesPaiement}
-                value={form.modePaiement}
+                value={form.mode_paiement}
                 onChange={(value) => {
-                  setForm({ ...form, modePaiement: value });
-                  setErrors({ ...errors, modePaiement: '' });
+                  setForm({ ...form, mode_paiement: value });
+                  setErrors({ ...errors, mode_paiement: "" });
                 }}
                 placeholder="Sélectionner un mode"
-                error={errors.modePaiement}
+                error={errors.mode_paiement}
               />
             </View>
 
             {/* Bouton de soumission */}
-            <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Animatable.View
+              animation="pulse"
+              iterationCount="infinite"
+              duration={2000}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  isSubmitting && styles.disabledButton,
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+              >
                 <View style={styles.submitGradient}>
-                  <Text style={styles.submitButtonText}>Ajouter</Text>
+                  <Text style={styles.submitButtonText}>
+                    {isSubmitting ? "Ajout en cours..." : "Ajouter"}
+                  </Text>
                 </View>
               </TouchableOpacity>
             </Animatable.View>
@@ -247,7 +408,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
 
 const styles = StyleSheet.create({
   modal: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
     margin: 0,
   },
   keyboardAvoidingView: {
@@ -256,27 +417,26 @@ const styles = StyleSheet.create({
   scrollContainer: {
     // flexGrow: 1,
     paddingBottom: 20,
-
   },
   modalContent: {
     backgroundColor: COLORS.white,
     borderTopLeftRadius: SIZES.radius,
     borderTopRightRadius: SIZES.radius,
     padding: SIZES.padding,
-    minHeight: '40%',
+    minHeight: "40%",
   },
   modalHandle: {
     width: 40,
     height: 5,
     backgroundColor: COLORS.textLight,
     borderRadius: 3,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: SIZES.margin,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: SIZES.margin,
   },
   modalTitle: {
@@ -307,6 +467,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   inputText: {
     fontSize: SIZES.fontMedium,
@@ -329,13 +492,16 @@ const styles = StyleSheet.create({
   submitGradient: {
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
-    alignItems: 'center',
-    backgroundColor: COLORS.accent, // Remplacement temporaire pour LinearGradient
+    alignItems: "center",
+    backgroundColor: COLORS.accent,
   },
   submitButtonText: {
     fontSize: SIZES.fontLarge,
     fontFamily: FONTS.bold,
     color: COLORS.white,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });
 

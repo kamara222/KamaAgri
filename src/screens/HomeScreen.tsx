@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,18 @@ import {
   Dimensions,
   TouchableOpacity,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import { useLogout } from '../services';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/Navigation';
 
 // Données mock pour les cartes et graphiques (à remplacer par données du backend)
 const summaryData = [
@@ -21,18 +27,6 @@ const summaryData = [
   { title: 'Stocks Critiques', value: '3', unit: 'articles', icon: 'warning' },
   { title: 'Ventes Mois', value: '150,000', unit: 'XAF', icon: 'shopping-cart' },
 ];
-
-// Données mock pour le graphique des mortalités (7 jours)
-const mortalityChartData = {
-  labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-  datasets: [
-    {
-      data: [20, 45, 28, '80', 99, 43, 50],
-      color: () => COLORS.secondary,
-      strokeWidth: 2,
-    },
-  ],
-};
 
 // Données mock pour le graphique des ventes (7 jours)
 const salesChartData = {
@@ -46,27 +40,113 @@ const salesChartData = {
   ],
 };
 
-// Données mock pour le graphique des stocks critiques (7 jours)
-const stockChartData = {
-  labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-  datasets: [
-    {
-      data: [5, 4, 3, 2, 3, 4, 3],
-      color: () => COLORS.error,
-      strokeWidth: 2,
-    },
-  ],
-};
+// Interface pour les informations utilisateur
+interface UserInfo {
+  prenom: string;
+  nom: string;
+}
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const HomeScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
+  const { mutate: logout } = useLogout();
+  const [userInitials, setUserInitials] = useState<string>('');
+
+  // Récupérer les informations utilisateur depuis AsyncStorage
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('userInfo');
+        console.log('Données AsyncStorage userInfo:', userData);
+        if (userData) {
+          const user: UserInfo = JSON.parse(userData);
+          console.log('Utilisateur parsé:', user);
+          const initials = `${user.prenom.charAt(0)}${user.nom.charAt(0)}`.toUpperCase();
+          setUserInitials(initials);
+          console.log('Initiales calculées:', initials);
+        } else {
+          console.warn('Aucune donnée userInfo trouvée dans AsyncStorage');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des infos utilisateur:', error);
+      }
+    };
+    fetchUserInfo();
+  }, []);
+
+  // Gérer la déconnexion avec modale de confirmation
+  const handleLogout = () => {
+    Alert.alert(
+      'Confirmation',
+      'Voulez-vous vous déconnecter ?',
+      [
+        {
+          text: 'Non',
+          style: 'cancel',
+        },
+        {
+          text: 'Oui',
+          style: 'destructive',
+          onPress: () => {
+            logout(
+              {},
+              {
+                onSuccess: () => {
+                  Toast.show({
+                    type: 'success',
+                    text1: 'Succès',
+                    text2: 'Déconnexion réussie',
+                  });
+                  navigation.replace('LoginScreen');
+                },
+                onError: (error: any) => {
+                  Toast.show({
+                    type: 'error',
+                    text1: 'Erreur',
+                    text2: 'Échec de la déconnexion',
+                  });
+                  console.error('Erreur de déconnexion:', error);
+                },
+              }
+            );
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   // Vérification des données
   const isDataValid =
     summaryData.length > 0 &&
-    mortalityChartData.labels.length > 0 &&
-    salesChartData.labels.length > 0 &&
-    stockChartData.labels.length > 0;
+    salesChartData.labels.length > 0;
+
+  // Configuration de l'en-tête
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          style={styles.headerInitialsContainer}
+          onPress={() => navigation.navigate('ProfileScreen')}
+          accessibilityLabel="Voir le profil"
+          accessibilityHint="Navigue vers la page de profil"
+        >
+          <Text style={styles.headerInitials}>{userInitials || '??'}</Text>
+        </TouchableOpacity>
+      ),
+      headerRight: () => (
+        <TouchableOpacity
+          style={styles.headerIconContainer}
+          onPress={handleLogout}
+          accessibilityLabel="Se déconnecter"
+          accessibilityHint="Ouvre une modale pour confirmer la déconnexion"
+        >
+          <Icon name="logout" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, userInitials]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -118,39 +198,6 @@ const HomeScreen: React.FC = () => {
         </View>
 
         {/* Section des graphiques */}
-        {/* <View style={styles.chartContainer}>
-          <Text style={styles.sectionTitle}>Mortalités (7 jours)</Text>
-          {isDataValid ? (
-            <Animatable.View animation="bounceIn" duration={1000}>
-              <LineChart
-                data={mortalityChartData}
-                width={Dimensions.get('window').width - SIZES.padding * 2}
-                height={220}
-                chartConfig={{
-                  backgroundColor: COLORS.white,
-                  backgroundGradientFrom: COLORS.white,
-                  backgroundGradientTo: COLORS.white,
-                  decimalPlaces: 0,
-                  color: () => COLORS.textLight,
-                  labelColor: () => COLORS.text,
-                  style: {
-                    borderRadius: SIZES.radius,
-                  },
-                  propsForDots: {
-                    r: '6',
-                    strokeWidth: '2',
-                    stroke: COLORS.primary,
-                  },
-                }}
-                bezier
-                style={styles.chart}
-              />
-            </Animatable.View>
-          ) : (
-            <Text style={styles.errorText}>Erreur : Données du graphique non disponibles</Text>
-          )}
-        </View> */}
-
         <View style={styles.chartContainer}>
           <Text style={styles.sectionTitle}>Ventes (7 jours, XAF)</Text>
           {isDataValid ? (
@@ -184,39 +231,6 @@ const HomeScreen: React.FC = () => {
           )}
         </View>
 
-        {/* <View style={styles.chartContainer}>
-          <Text style={styles.sectionTitle}>Stocks Critiques (7 jours)</Text>
-          {isDataValid ? (
-            <Animatable.View animation="bounceIn" duration={1000}>
-              <LineChart
-                data={stockChartData}
-                width={Dimensions.get('window').width - SIZES.padding * 2}
-                height={220}
-                chartConfig={{
-                  backgroundColor: COLORS.white,
-                  backgroundGradientFrom: COLORS.white,
-                  backgroundGradientTo: COLORS.white,
-                  decimalPlaces: 0,
-                  color: () => COLORS.textLight,
-                  labelColor: () => COLORS.text,
-                  style: {
-                    borderRadius: SIZES.radius,
-                  },
-                  propsForDots: {
-                    r: '6',
-                    strokeWidth: '2',
-                    stroke: COLORS.error,
-                  },
-                }}
-                bezier
-                style={styles.chart}
-              />
-            </Animatable.View>
-          ) : (
-            <Text style={styles.errorText}>Erreur : Données du graphique non disponibles</Text>
-          )}
-        </View> */}
-
         {/* Section de navigation rapide */}
         <View style={styles.navigationContainer}>
           <Text style={styles.sectionTitle}>Accès Rapide</Text>
@@ -227,70 +241,70 @@ const HomeScreen: React.FC = () => {
                 icon: 'egg',
                 screen: 'ChickenManagement',
                 hint: 'Navigue vers la gestion des poulets',
-                code:'poulets'
+                code: 'poulets',
               },
               {
                 name: 'Poissons',
                 icon: 'waves',
                 screen: 'FishManagement',
                 hint: 'Navigue vers la gestion des poissons',
-                code:'poissons'
+                code: 'poissons',
               },
               {
                 name: 'Stocks',
                 icon: 'inventory',
                 screen: 'StockManagement',
                 hint: 'Navigue vers la gestion des stocks',
-                code:'stocks'
+                code: 'stocks',
               },
               {
                 name: 'Rapports',
                 icon: 'assessment',
                 screen: 'Reports',
                 hint: 'Navigue vers les rapports',
-                code:'rapports'
+                code: 'rapports',
               },
               {
                 name: 'Ventes',
                 icon: 'shopping-cart',
                 screen: 'SalesTrackingGeneral',
                 hint: 'Navigue vers le suivi des ventes',
-                code:'ventes'
+                code: 'ventes',
               },
               {
                 name: 'Paramètres',
                 icon: 'settings',
                 screen: 'Settings',
                 hint: 'Navigue vers les paramètres',
-                code:'parametres'
+                code: 'parametres',
               },
               {
                 name: 'Sauvegarde',
                 icon: 'archive',
                 screen: 'Backup',
                 hint: 'Navigue vers la gestion des sauvegardes',
-                code:'sauvegarde'
+                code: 'sauvegarde',
               },
               {
                 name: 'Tableau Avancé',
                 icon: 'dashboard',
                 screen: 'AdvancedDashboard',
                 hint: 'Navigue vers le tableau de bord avancé',
-                code:'tableau_de_bord'
+                code: 'tableau_de_bord',
               },
               {
                 name: 'Planificateur',
                 icon: 'event',
                 screen: 'Planner',
                 hint: 'Navigue vers le planificateur d’événements',
-                code:'planificateur'
+                code: 'planificateur',
               },
               {
                 name: 'Galerie',
                 icon: 'photo-camera',
                 screen: 'PhotoGallery',
                 hint: 'Navigue vers la galerie photo',
-                code:'galerie'
+                code: 'galerie',
               },
             ].map((button, index) => (
               <Animatable.View
@@ -420,6 +434,23 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textAlign: 'center',
     marginTop: SIZES.margin,
+  },
+  headerInitialsContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SIZES.padding,
+  },
+  headerInitials: {
+    fontSize: SIZES.fontLarge,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  headerIconContainer: {
+    marginRight: SIZES.padding,
   },
 });
 

@@ -56,6 +56,7 @@ import SalesTrackingGeneralScreen from '../screens/SalesTrackingGeneralScreen';
 import PhotoGalleryScreen from '../screens/PhotoGalleryScreen';
 import LoginScreen from '../auth/LoginScreen';
 import SplashScreen from '../screens/SplashScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 // Définir les types pour la navigation
 export type RootStackParamList = {
@@ -82,6 +83,7 @@ export type RootStackParamList = {
     AdvancedDashboard: undefined;
     Planner: undefined;
     PhotoGallery: undefined;
+    ProfileScreen: undefined;
     // Ajouter d'autres écrans plus tard
 };
 
@@ -235,6 +237,13 @@ const Navigation: React.FC = () => {
                     name="SplashScreen"
                     component={SplashScreen}
                     options={{ title: 'SplashScreen', headerShown: false }}
+                />
+
+                
+                <Stack.Screen
+                    name="ProfileScreen"
+                    component={ProfileScreen}
+                    options={{ title: 'Profil' }}
                 />
 
             </Stack.Navigator>

@@ -1,5 +1,4 @@
-// src/components/AddBasinModal.tsx
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,21 +8,22 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
-} from 'react-native';
-import Modal from 'react-native-modal';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import * as Animatable from 'react-native-animatable';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
-import CustomSelect from './CustomSelect';
+} from "react-native";
+import Modal from "react-native-modal";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Animatable from "react-native-animatable";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
+import CustomSelect from "./CustomSelect";
+import { useEspeces, useCreateBassin } from "../services";
+import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
 interface BasinForm {
-  nom: string;
+  nom_bassin: string;
   espece: string;
-  dateMiseEnEau: Date;
-  nombrePoissons: string;
-  volume: string;
+  date?: string;
+  nombre?: string;
 }
 
 interface AddBasinModalProps {
@@ -39,33 +39,48 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
 }) => {
   // État du formulaire
   const [form, setForm] = useState<BasinForm>({
-    nom: '',
-    espece: '',
-    dateMiseEnEau: new Date(),
-    nombrePoissons: '',
-    volume: '',
+    nom_bassin: "",
+    espece: "",
+    date: "",
+    nombre: "",
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Options pour le dropdown des espèces (mockées, à remplacer par API)
-  const especes = [
-    { label: 'Sélectionner une espèce', value: '' },
-    { label: 'Tilapia', value: 'Tilapia' },
-    { label: 'Carpe', value: 'Carpe' },
-    { label: 'Silure', value: 'Silure' },
+  // Liste statique des bassins pour le dropdown
+  const bassins = [
+    { label: "Sélectionner un bassin", value: "" },
+    { label: "Bassin Nord", value: "Bassin Nord" },
+    { label: "Bassin Sud", value: "Bassin Sud" },
+    { label: "Bassin Est", value: "Bassin Est" },
+    { label: "Bassin Ouest", value: "Bassin Ouest" },
   ];
+
+  // Hook pour récupérer les espèces
+  const {
+    data: especesData = [],
+    isLoading: isEspecesLoading,
+    isError: isEspecesError,
+  } = useEspeces();
+  const especes = [
+    { label: "Sélectionner une espèce", value: "" },
+    ...especesData.map((espece: { label: string; value: string }) => ({
+      label: espece.label,
+      value: espece.value,
+    })),
+  ];
+
+  // Hook pour créer un bassin
+  const { mutate: createBassin, isLoading: isSubmitting } = useCreateBassin();
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!form.nom) newErrors.nom = 'Nom requis';
-    if (!form.espece) newErrors.espece = 'Espèce requise';
-    if (!form.dateMiseEnEau) newErrors.dateMiseEnEau = 'Date requise';
-    if (!form.nombrePoissons || parseInt(form.nombrePoissons) <= 0)
-      newErrors.nombrePoissons = 'Nombre positif requis';
-    if (!form.volume || parseFloat(form.volume) <= 0)
-      newErrors.volume = 'Volume positif requis';
+    if (!form.nom_bassin) newErrors.nom_bassin = "Nom requis";
+    if (!form.espece) newErrors.espece = "Espèce requise";
+    if (!form.date) newErrors.date = "Date requise";
+    if (!form.nombre || parseInt(form.nombre) <= 0)
+      newErrors.nombre = "Nombre positif requis";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -73,7 +88,36 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
   // Gestion de la soumission
   const handleSubmit = () => {
     if (validateForm()) {
-      onSubmit(form);
+      const basinData = {
+        nom_bassin: form.nom_bassin,
+        espece: form.espece,
+        date: form.date,
+        nombre: parseInt(form.nombre),
+      };
+      console.log("Données envoyées à l'API:", basinData); // Log pour déboguer
+      createBassin(basinData, {
+        onSuccess: (data) => {
+          console.log("Bassin créé avec succès:", data);
+          Toast.show({
+            type: "successToast",
+            props: {
+              message: "Bassin ajouté avec succès",
+            },
+          });
+          onSubmit(form);
+          setForm({ nom_bassin: "", espece: "", date: "", nombre: "" });
+        },
+
+        onError: (error) => {
+          console.log("Erreur lors de la création du bassin:", error);
+          Toast.show({
+            type: "errorToast",
+            props: {
+              message: "Erreur lors de l’ajout du bassin",
+            },
+          });
+        },
+      });
     }
   };
 
@@ -86,7 +130,7 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
       animationOut="slideOutDown"
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -104,59 +148,73 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Champ Nom */}
+            {/* Champ Nom (Dropdown) */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nom du bassin *</Text>
-              <TextInput
-                style={[styles.input, errors.nom && styles.inputError]}
-                value={form.nom}
-                onChangeText={(text) => {
-                  setForm({ ...form, nom: text });
-                  setErrors({ ...errors, nom: '' });
+              <CustomSelect
+                options={bassins}
+                value={form.nom_bassin}
+                onChange={(value) => {
+                  setForm({ ...form, nom_bassin: value });
+                  setErrors({ ...errors, nom_bassin: "" });
                 }}
-                placeholder="Ex: Bassin Nord"
-                placeholderTextColor={COLORS.textLight}
+                placeholder="Sélectionner un bassin"
+                error={errors.nom_bassin}
               />
-              {errors.nom && <Text style={styles.errorText}>{errors.nom}</Text>}
+              {errors.nom_bassin && (
+                <Text style={styles.errorText}>{errors.nom_bassin}</Text>
+              )}
             </View>
 
             {/* Champ Espèce */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Espèce *</Text>
-              <CustomSelect
-                options={especes}
-                value={form.espece}
-                onChange={(value) => {
-                  setForm({ ...form, espece: value });
-                  setErrors({ ...errors, espece: '' });
-                }}
-                placeholder="Sélectionner une espèce"
-                error={errors.espece}
-              />
+              {isEspecesLoading ? (
+                <Text style={styles.loadingText}>
+                  Chargement des espèces...
+                </Text>
+              ) : isEspecesError ? (
+                <Text style={styles.errorText}>
+                  Erreur lors du chargement des espèces
+                </Text>
+              ) : (
+                <CustomSelect
+                  options={especes}
+                  value={form.espece}
+                  onChange={(value) => {
+                    setForm({ ...form, espece: value });
+                    setErrors({ ...errors, espece: "" });
+                  }}
+                  placeholder="Sélectionner une espèce"
+                  error={errors.espece}
+                />
+              )}
             </View>
 
             {/* Champ Date mise en eau */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Date mise en eau *</Text>
               <TouchableOpacity
-                style={[styles.input, errors.dateMiseEnEau && styles.inputError]}
+                style={[styles.input, errors.date && styles.inputError]}
                 onPress={() => setShowDatePicker(true)}
               >
                 <Text style={styles.inputText}>
-                  {form.dateMiseEnEau.toLocaleDateString('fr-FR')}
+                  {form.date
+                    ? new Date(form.date).toLocaleDateString("fr-FR")
+                    : "Sélectionner une date"}
                 </Text>
                 <Icon name="calendar-today" size={20} color={COLORS.text} />
               </TouchableOpacity>
               {showDatePicker && (
                 <DateTimePicker
-                  value={form.dateMiseEnEau}
+                  value={form.date ? new Date(form.date) : new Date()}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  display={Platform.OS === "ios" ? "inline" : "default"}
                   onChange={(event, date) => {
                     setShowDatePicker(false);
                     if (date) {
-                      setForm({ ...form, dateMiseEnEau: date });
-                      setErrors({ ...errors, dateMiseEnEau: '' });
+                      setForm({ ...form, date: date.toISOString() });
+                      setErrors({ ...errors, date: "" });
                     }
                   }}
                   textColor={COLORS.text}
@@ -164,8 +222,8 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
                   themeVariant="light"
                 />
               )}
-              {errors.dateMiseEnEau && (
-                <Text style={styles.errorText}>{errors.dateMiseEnEau}</Text>
+              {errors.date && (
+                <Text style={styles.errorText}>{errors.date}</Text>
               )}
             </View>
 
@@ -173,45 +231,39 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nombre de poissons *</Text>
               <TextInput
-                style={[styles.input, errors.nombrePoissons && styles.inputError]}
+                style={[styles.input, errors.nombre && styles.inputError]}
                 keyboardType="number-pad"
-                value={form.nombrePoissons}
+                value={form.nombre}
                 onChangeText={(text) => {
-                  setForm({ ...form, nombrePoissons: text });
-                  setErrors({ ...errors, nombrePoissons: '' });
+                  setForm({ ...form, nombre: text });
+                  setErrors({ ...errors, nombre: "" });
                 }}
                 placeholder="Ex: 1000"
                 placeholderTextColor={COLORS.textLight}
               />
-              {errors.nombrePoissons && (
-                <Text style={styles.errorText}>{errors.nombrePoissons}</Text>
-              )}
-            </View>
-
-            {/* Champ Volume */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Volume (m³) *</Text>
-              <TextInput
-                style={[styles.input, errors.volume && styles.inputError]}
-                keyboardType="decimal-pad"
-                value={form.volume}
-                onChangeText={(text) => {
-                  setForm({ ...form, volume: text });
-                  setErrors({ ...errors, volume: '' });
-                }}
-                placeholder="Ex: 50"
-                placeholderTextColor={COLORS.textLight}
-              />
-              {errors.volume && (
-                <Text style={styles.errorText}>{errors.volume}</Text>
+              {errors.nombre && (
+                <Text style={styles.errorText}>{errors.nombre}</Text>
               )}
             </View>
 
             {/* Bouton de soumission */}
-            <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Animatable.View
+              animation="pulse"
+              iterationCount="infinite"
+              duration={2000}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  isSubmitting && styles.disabledButton,
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+              >
                 <View style={styles.submitGradient}>
-                  <Text style={styles.submitButtonText}>Ajouter</Text>
+                  <Text style={styles.submitButtonText}>
+                    {isSubmitting ? "Ajout en cours..." : "Ajouter"}
+                  </Text>
                 </View>
               </TouchableOpacity>
             </Animatable.View>
@@ -224,7 +276,7 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
 
 const styles = StyleSheet.create({
   modal: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
     margin: 0,
   },
   keyboardAvoidingView: {
@@ -239,20 +291,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: SIZES.radius,
     borderTopRightRadius: SIZES.radius,
     padding: SIZES.padding,
-    minHeight: '40%',
+    minHeight: "40%",
   },
   modalHandle: {
     width: 40,
     height: 5,
     backgroundColor: COLORS.textLight,
     borderRadius: 3,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: SIZES.margin,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: SIZES.margin,
   },
   modalTitle: {
@@ -283,9 +335,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   inputText: {
     fontSize: SIZES.fontMedium,
@@ -308,13 +360,22 @@ const styles = StyleSheet.create({
   submitGradient: {
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
-    alignItems: 'center',
-    backgroundColor: COLORS.accent, // Remplacement temporaire pour LinearGradient
+    alignItems: "center",
+    backgroundColor: COLORS.accent,
   },
   submitButtonText: {
     fontSize: SIZES.fontLarge,
     fontFamily: FONTS.bold,
     color: COLORS.white,
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    textAlign: "center",
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });
 

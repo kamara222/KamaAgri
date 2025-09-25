@@ -1,4 +1,3 @@
-// src/screens/FishMortalityScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -12,45 +11,32 @@ import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddFishMortalityModal from '../components/AddFishMortalityModal';
-
-// Données mock pour la liste des mortalités (à remplacer par API)
-const mockMortalities = [
-  {
-    id: '1',
-    date: '2025-05-10',
-    bassin: 'Bassin Nord',
-    nombreMorts: 10,
-    cause: 'Maladie',
-  },
-  {
-    id: '2',
-    date: '2025-05-08',
-    bassin: 'Bassin Sud',
-    nombreMorts: 5,
-    cause: 'Qualité eau',
-  },
-];
+import { useFishMortalities } from '../services'; // Importer le hook
 
 // Types pour une mortalité
-interface Mortality {
+interface FishMortality {
   id: string;
-  date: string;
+  date?: string;
   bassin: string;
-  nombreMorts: number;
+  nombre?: number;
   cause: string;
+  espece: string;
 }
 
 const FishMortalityScreen: React.FC = () => {
   const [filterBassin, setFilterBassin] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
   const [filterCause, setFilterCause] = useState('');
+  const [filterEspece, setFilterEspece] = useState(''); // Nouveau filtre pour espèce
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Options pour les filtres
+  // Options pour les filtres (statiques, à adapter si API pour bassins/especes)
   const bassins = [
     { label: 'Tous les bassins', value: '' },
     { label: 'Bassin Nord', value: 'Bassin Nord' },
     { label: 'Bassin Sud', value: 'Bassin Sud' },
+    { label: 'Bassin Est', value: 'Bassin Est' },
+    { label: 'Bassin Ouest', value: 'Bassin Ouest' },
   ];
   const periods = [
     { label: 'Toutes périodes', value: '' },
@@ -63,15 +49,32 @@ const FishMortalityScreen: React.FC = () => {
     { label: 'Qualité eau', value: 'Qualité eau' },
     { label: 'Autre', value: 'Autre' },
   ];
+  const especes = [
+    { label: 'Toutes espèces', value: '' },
+    { label: 'Tilapia', value: 'Tilapia' },
+    { label: 'Carpe', value: 'Carpe' },
+    { label: 'Silure', value: 'Silure' },
+    { label: 'Capitaine', value: 'Capitaine' },
+  ];
 
-  // Filtrer les mortalités avec gestion des erreurs
-  const filteredMortalities = mockMortalities.filter((mortality) => {
+  // Utiliser le hook pour récupérer les mortalités avec filtre par espèce
+  const { data: mortalities = [], isLoading, isError } = useFishMortalities(filterEspece);
+
+  // Log pour déboguer les données reçues
+  console.log('Mortalités reçues:', mortalities);
+
+  // Filtrer localement pour bassin, période et cause
+  const filteredMortalities = mortalities.filter((mortality) => {
     try {
       const matchesBassin = !filterBassin || mortality.bassin === filterBassin;
       const matchesPeriod =
         !filterPeriod ||
-        (filterPeriod === 'week' && mortality.date >= '2025-05-06') ||
-        (filterPeriod === 'month' && mortality.date >= '2025-04-10');
+        (filterPeriod === 'week' &&
+          mortality.date &&
+          new Date(mortality.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) ||
+        (filterPeriod === 'month' &&
+          mortality.date &&
+          new Date(mortality.date) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
       const matchesCause = !filterCause || mortality.cause === filterCause;
       return matchesBassin && matchesPeriod && matchesCause;
     } catch (error) {
@@ -81,20 +84,25 @@ const FishMortalityScreen: React.FC = () => {
   });
 
   // Rendu de chaque carte de mortalité
-  const renderMortalityItem = ({ item }: { item: Mortality }) => (
+  const renderMortalityItem = ({ item }: { item: FishMortality }) => (
     <Animatable.View animation="fadeInUp" duration={500} style={styles.mortalityCard}>
       <View style={styles.cardHeader}>
         <Icon name="warning" size={28} color={COLORS.accent} />
         <Text style={styles.cardTitle}>{item.bassin}</Text>
       </View>
-      <Text style={styles.cardDetail}>Date: {item.date}</Text>
-      <Text style={styles.cardDetail}>Nombre de morts: {item.nombreMorts}</Text>
+      {item.date && <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>}
+      <Text style={styles.cardDetail}>Nombre de morts: {item.nombre || 0}</Text>
       <Text style={styles.cardDetail}>Cause: {item.cause}</Text>
+      <Text style={styles.cardDetail}>Espèce: {item.espece || 'Non spécifiée'}</Text>
     </Animatable.View>
   );
 
   return (
     <View style={styles.container}>
+      {/* Indicateur de chargement */}
+      {isLoading && <Text style={styles.loadingText}>Chargement...</Text>}
+      {isError && <Text style={styles.errorText}>Erreur lors du chargement des mortalités</Text>}
+
       {/* Filtres */}
       <View style={styles.filterContainer}>
         <CustomSelect
@@ -114,6 +122,12 @@ const FishMortalityScreen: React.FC = () => {
           value={filterCause}
           onChange={setFilterCause}
           placeholder="Filtrer par cause"
+        />
+        <CustomSelect
+          options={especes}
+          value={filterEspece}
+          onChange={setFilterEspece}
+          placeholder="Filtrer par espèce"
         />
       </View>
 
@@ -143,9 +157,8 @@ const FishMortalityScreen: React.FC = () => {
         isVisible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onSubmit={(mortality) => {
-          console.log('Nouvelle mortalité:', mortality);
+          console.log('Nouvelle mortalité soumise:', mortality);
           setIsModalVisible(false);
-          // TODO: Envoyer au backend
         }}
       />
     </View>
@@ -214,6 +227,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
+  },
+  errorText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.error,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
   },
 });
 

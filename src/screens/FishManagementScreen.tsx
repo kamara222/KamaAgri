@@ -1,4 +1,3 @@
-// src/screens/FishManagementScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -12,35 +11,15 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import AddBasinModal from '../components/AddBasinModal';
 import { useNavigation } from '@react-navigation/native';
-
-// Données mock pour la liste des bassins (à remplacer par API)
-const mockBasins = [
-  {
-    id: '1',
-    nom: 'Bassin Nord',
-    espece: 'Tilapia',
-    dateMiseEnEau: '2025-05-01',
-    nombrePoissons: 1000,
-    volume: 50,
-  },
-  {
-    id: '2',
-    nom: 'Bassin Sud',
-    espece: 'Carpe',
-    dateMiseEnEau: '2025-04-15',
-    nombrePoissons: 800,
-    volume: 40,
-  },
-];
+import { useBassins } from '../services';
 
 // Types pour un bassin
 interface Basin {
   id: string;
-  nom: string;
+  nom_bassin: string;
   espece: string;
-  dateMiseEnEau: string;
-  nombrePoissons: number;
-  volume: number;
+  date?: string;
+  nombre?: number;
 }
 
 const FishManagementScreen: React.FC = () => {
@@ -48,11 +27,15 @@ const FishManagementScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Filtrer les bassins en fonction de la recherche
-  const filteredBasins = mockBasins.filter(
-    (basin) =>
-      basin.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      basin.espece.toLowerCase().includes(searchQuery.toLowerCase())
+  // Utiliser le hook pour récupérer les bassins avec filtre par espèce si nécessaire
+  const { data: basins = [], isLoading, isError } = useBassins(searchQuery);
+
+  // Log pour déboguer les données reçues
+  console.log('Bassins reçus:', basins);
+
+  // Filtrer les bassins en fonction de la recherche (localement pour le nom_bassin)
+  const filteredBasins = basins.filter((basin) =>
+    basin.nom_bassin.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Rendu de chaque carte de bassin
@@ -60,23 +43,25 @@ const FishManagementScreen: React.FC = () => {
     <TouchableOpacity
       style={styles.basinCard}
       onPress={() => {
-        // TODO: Naviguer vers la modification du bassin
-        console.log('Modifier bassin', item.id);
+        console.log('Modifier bassin', item.id, item);
       }}
     >
       <View style={styles.basinHeader}>
         <Icon name="waves" size={24} color={COLORS.accent} />
-        <Text style={styles.basinTitle}>{item.nom}</Text>
+        <Text style={styles.basinTitle}>{item.nom_bassin}</Text>
       </View>
-      <Text style={styles.basinDetail}>Espèce: {item.espece}</Text>
-      <Text style={styles.basinDetail}>Mise en eau: {item.dateMiseEnEau}</Text>
-      <Text style={styles.basinDetail}>Poissons: {item.nombrePoissons}</Text>
-      <Text style={styles.basinDetail}>Volume: {item.volume} m³</Text>
+      <Text style={styles.basinDetail}>Espèce: {item.espece || 'Non spécifiée'}</Text>
+      {item.date && <Text style={styles.basinDetail}>Mise en eau: {item.date}</Text>}
+      {item.nombre && <Text style={styles.basinDetail}>Poissons: {item.nombre}</Text>}
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
+      {/* Indicateur de chargement */}
+      {isLoading && <Text style={styles.loadingText}>Chargement...</Text>}
+      {isError && <Text style={styles.errorText}>Erreur lors du chargement des bassins</Text>}
+
       {/* Barre de recherche */}
       <View style={styles.searchContainer}>
         <Icon name="search" size={24} color={COLORS.textLight} />
@@ -134,9 +119,8 @@ const FishManagementScreen: React.FC = () => {
         isVisible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onSubmit={(basin) => {
-          console.log('Nouveau bassin:', basin);
+          console.log('Nouveau bassin soumis:', basin);
           setIsModalVisible(false);
-          // TODO: Envoyer au backend
         }}
       />
     </View>
@@ -237,6 +221,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
+  },
+  errorText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.error,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
   },
 });
 

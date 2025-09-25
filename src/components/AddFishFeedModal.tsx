@@ -1,5 +1,4 @@
-// src/components/AddFishFeedModal.tsx
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,20 +8,23 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
-} from 'react-native';
-import Modal from 'react-native-modal';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import * as Animatable from 'react-native-animatable';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
-import CustomSelect from './CustomSelect';
+} from "react-native";
+import Modal from "react-native-modal";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Animatable from "react-native-animatable";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
+import CustomSelect from "./CustomSelect";
+import { useCreateFishFeedDistribution, useBassins } from "../services";
+import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
 interface FeedForm {
-  date: Date;
-  bassin: string;
-  typeAliment: string;
-  quantite: string;
+  date?: string;
+  nom_alimentation: string;
+  type: string;
+  poids: string;
+  nombre?: string;
 }
 
 interface AddFishFeedModalProps {
@@ -38,34 +40,45 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
 }) => {
   // État du formulaire
   const [form, setForm] = useState<FeedForm>({
-    date: new Date(),
-    bassin: '',
-    typeAliment: '',
-    quantite: '',
+    date: "",
+    nom_alimentation: "",
+    type: "",
+    poids: "",
+    nombre: "",
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Options pour les dropdowns (mockées, à remplacer par API)
+  // Hook pour récupérer les bassins dynamiquement
+  const { data: bassinsData = [] } = useBassins();
   const bassins = [
-    { label: 'Sélectionner un bassin', value: '' },
-    { label: 'Bassin Nord', value: 'Bassin Nord' },
-    { label: 'Bassin Sud', value: 'Bassin Sud' },
+    { label: "Sélectionner un bassin", value: "" },
+    ...bassinsData.map((basin: { nom_bassin: string }) => ({
+      label: basin.nom_bassin,
+      value: basin.nom_bassin,
+    })),
   ];
+
+  // Options pour les types d'aliment (statiques)
   const typesAliment = [
-    { label: 'Sélectionner un type', value: '' },
-    { label: 'Granulés', value: 'Granulés' },
-    { label: 'Farine', value: 'Farine' },
+    { label: "Sélectionner un type", value: "" },
+    { label: "Granulés", value: "Granulés" },
+    { label: "Farine", value: "Farine" },
   ];
+
+  // Hook pour créer une distribution
+  const { mutate: createFishFeedDistribution, isLoading: isSubmitting } =
+    useCreateFishFeedDistribution();
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!form.date) newErrors.date = 'Date requise';
-    if (!form.bassin) newErrors.bassin = 'Bassin requis';
-    if (!form.typeAliment) newErrors.typeAliment = 'Type d’aliment requis';
-    if (!form.quantite || parseFloat(form.quantite) <= 0)
-      newErrors.quantite = 'Quantité positive requise';
+    if (!form.nom_alimentation) newErrors.nom_alimentation = "Nom requis";
+    if (!form.type) newErrors.type = "Type d’aliment requis";
+    if (!form.poids || parseFloat(form.poids) <= 0)
+      newErrors.poids = "Poids positif requis";
+    if (form.nombre && parseInt(form.nombre) < 0)
+      newErrors.nombre = "Nombre positif ou vide requis";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -73,7 +86,48 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
   // Gestion de la soumission
   const handleSubmit = () => {
     if (validateForm()) {
-      onSubmit(form);
+      const feedData = {
+        date: form.date,
+        nom_alimentation: form.nom_alimentation,
+        type: form.type,
+        poids: parseFloat(form.poids),
+        nombre: form.nombre ? parseInt(form.nombre) : undefined,
+      };
+      console.log("Données envoyées à l'API:", feedData); // Log pour déboguer
+      createFishFeedDistribution(feedData, {
+        onSuccess: (data) => {
+          console.log("Distribution créée avec succès:", data); // Log pour vérifier les données renvoyées
+          Toast.show({
+            type: "successToast",
+            props: {
+              message: "Succès",
+              description: "Distribution ajoutée avec succès",
+            },
+          });
+          onSubmit(form);
+          setForm({
+            date: "",
+            nom_alimentation: "",
+            type: "",
+            poids: "",
+            nombre: "",
+          });
+        },
+
+        onError: (error) => {
+          console.error(
+            "Erreur lors de la création de la distribution:",
+            error
+          );
+          Toast.show({
+            type: "errorToast",
+            props: {
+              message: "Erreur",
+              description: "Erreur lors de l'ajout de la distribution",
+            },
+          });
+        },
+      });
     }
   };
 
@@ -86,7 +140,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
       animationOut="slideOutDown"
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -106,26 +160,28 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
 
             {/* Champ Date */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Date *</Text>
+              <Text style={styles.label}>Date</Text>
               <TouchableOpacity
                 style={[styles.input, errors.date && styles.inputError]}
                 onPress={() => setShowDatePicker(true)}
               >
                 <Text style={styles.inputText}>
-                  {form.date.toLocaleDateString('fr-FR')}
+                  {form.date
+                    ? new Date(form.date).toLocaleDateString("fr-FR")
+                    : "Sélectionner une date"}
                 </Text>
                 <Icon name="calendar-today" size={20} color={COLORS.text} />
               </TouchableOpacity>
               {showDatePicker && (
                 <DateTimePicker
-                  value={form.date}
+                  value={form.date ? new Date(form.date) : new Date()}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  display={Platform.OS === "ios" ? "inline" : "default"}
                   onChange={(event, date) => {
                     setShowDatePicker(false);
                     if (date) {
-                      setForm({ ...form, date });
-                      setErrors({ ...errors, date: '' });
+                      setForm({ ...form, date: date.toISOString() });
+                      setErrors({ ...errors, date: "" });
                     }
                   }}
                   textColor={COLORS.text}
@@ -133,22 +189,30 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
                   themeVariant="light"
                 />
               )}
-              {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+              {errors.date && (
+                <Text style={styles.errorText}>{errors.date}</Text>
+              )}
             </View>
 
-            {/* Champ Bassin */}
+            {/* Champ Nom de l'alimentation */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Bassin concerné *</Text>
-              <CustomSelect
-                options={bassins}
-                value={form.bassin}
-                onChange={(value) => {
-                  setForm({ ...form, bassin: value });
-                  setErrors({ ...errors, bassin: '' });
+              <Text style={styles.label}>Nom de l'alimentation *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  errors.nom_alimentation && styles.inputError,
+                ]}
+                value={form.nom_alimentation}
+                onChangeText={(text) => {
+                  setForm({ ...form, nom_alimentation: text });
+                  setErrors({ ...errors, nom_alimentation: "" });
                 }}
-                placeholder="Sélectionner un bassin"
-                error={errors.bassin}
+                placeholder="Ex: Granulés flottants"
+                placeholderTextColor={COLORS.textLight}
               />
+              {errors.nom_alimentation && (
+                <Text style={styles.errorText}>{errors.nom_alimentation}</Text>
+              )}
             </View>
 
             {/* Champ Type d’aliment */}
@@ -156,40 +220,72 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
               <Text style={styles.label}>Type d’aliment *</Text>
               <CustomSelect
                 options={typesAliment}
-                value={form.typeAliment}
+                value={form.type}
                 onChange={(value) => {
-                  setForm({ ...form, typeAliment: value });
-                  setErrors({ ...errors, typeAliment: '' });
+                  setForm({ ...form, type: value });
+                  setErrors({ ...errors, type: "" });
                 }}
                 placeholder="Sélectionner un type"
-                error={errors.typeAliment}
+                error={errors.type}
               />
             </View>
 
-            {/* Champ Quantité */}
+            {/* Champ Poids */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Quantité (kg) *</Text>
+              <Text style={styles.label}>Poids (kg) *</Text>
               <TextInput
-                style={[styles.input, errors.quantite && styles.inputError]}
+                style={[styles.input, errors.poids && styles.inputError]}
                 keyboardType="decimal-pad"
-                value={form.quantite}
+                value={form.poids}
                 onChangeText={(text) => {
-                  setForm({ ...form, quantite: text });
-                  setErrors({ ...errors, quantite: '' });
+                  setForm({ ...form, poids: text });
+                  setErrors({ ...errors, poids: "" });
                 }}
                 placeholder="Ex: 20"
                 placeholderTextColor={COLORS.textLight}
               />
-              {errors.quantite && (
-                <Text style={styles.errorText}>{errors.quantite}</Text>
+              {errors.poids && (
+                <Text style={styles.errorText}>{errors.poids}</Text>
+              )}
+            </View>
+
+            {/* Champ Nombre */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Nombre</Text>
+              <TextInput
+                style={[styles.input, errors.nombre && styles.inputError]}
+                keyboardType="number-pad"
+                value={form.nombre}
+                onChangeText={(text) => {
+                  setForm({ ...form, nombre: text });
+                  setErrors({ ...errors, nombre: "" });
+                }}
+                placeholder="Ex: 100 (optionnel)"
+                placeholderTextColor={COLORS.textLight}
+              />
+              {errors.nombre && (
+                <Text style={styles.errorText}>{errors.nombre}</Text>
               )}
             </View>
 
             {/* Bouton de soumission */}
-            <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <Animatable.View
+              animation="pulse"
+              iterationCount="infinite"
+              duration={2000}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  isSubmitting && styles.disabledButton,
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+              >
                 <View style={styles.submitGradient}>
-                  <Text style={styles.submitButtonText}>Ajouter</Text>
+                  <Text style={styles.submitButtonText}>
+                    {isSubmitting ? "Ajout en cours..." : "Ajouter"}
+                  </Text>
                 </View>
               </TouchableOpacity>
             </Animatable.View>
@@ -202,7 +298,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
 
 const styles = StyleSheet.create({
   modal: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
     margin: 0,
   },
   keyboardAvoidingView: {
@@ -217,20 +313,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: SIZES.radius,
     borderTopRightRadius: SIZES.radius,
     padding: SIZES.padding,
-    minHeight: '40%',
+    minHeight: "40%",
   },
   modalHandle: {
     width: 40,
     height: 5,
     backgroundColor: COLORS.textLight,
     borderRadius: 3,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: SIZES.margin,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: SIZES.margin,
   },
   modalTitle: {
@@ -261,9 +357,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   inputText: {
     fontSize: SIZES.fontMedium,
@@ -286,13 +382,16 @@ const styles = StyleSheet.create({
   submitGradient: {
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
-    alignItems: 'center',
-    backgroundColor: COLORS.accent, // Remplacement temporaire pour LinearGradient
+    alignItems: "center",
+    backgroundColor: COLORS.accent,
   },
   submitButtonText: {
     fontSize: SIZES.fontLarge,
     fontFamily: FONTS.bold,
     color: COLORS.white,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });
 
