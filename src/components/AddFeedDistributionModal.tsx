@@ -1,4 +1,3 @@
-// src/components/AddFeedDistributionModal.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -29,12 +28,14 @@ interface AddFeedDistributionModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (distribution: FeedDistributionForm) => void;
+  lots: { label: string; value: string }[]; // Options dynamiques
 }
 
 const AddFeedDistributionModal: React.FC<AddFeedDistributionModalProps> = ({
   isVisible,
   onClose,
   onSubmit,
+  lots,
 }) => {
   // État du formulaire
   const [form, setForm] = useState<FeedDistributionForm>({
@@ -46,12 +47,7 @@ const AddFeedDistributionModal: React.FC<AddFeedDistributionModalProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Options pour les dropdowns (mockées, à remplacer par API)
-  const lots = [
-    { label: 'Sélectionner un lot', value: '' },
-    { label: 'Ross 308 - Bâtiment A', value: 'Ross 308 - Bâtiment A' },
-    { label: 'Cobb 500 - Bâtiment B', value: 'Cobb 500 - Bâtiment B' },
-  ];
+  // Options pour les types d'aliments (mockées, pas d'API fournie)
   const typesAliment = [
     { label: 'Sélectionner un type', value: '' },
     { label: 'Granulés démarrage', value: 'Granulés démarrage' },

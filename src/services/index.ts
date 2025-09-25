@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getEleves, getLots, createLot, getMortalities, createMortality } from '../api';
+import { getEleves, getLots, createLot, getMortalities, createMortality, getFeedDistributions, createFeedDistribution } from '../api';
 
 export const useEleves = () => {
   return useQuery({
@@ -42,6 +42,25 @@ export const useCreateMortality = () => {
     mutationFn: createMortality,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mortalities'] });
+    },
+  });
+};
+
+// Hook pour récupérer les distributions d'aliments
+export const useFeedDistributions = (typeFilter?: string) => {
+  return useQuery({
+    queryKey: ['feedDistributions', typeFilter],
+    queryFn: () => getFeedDistributions(typeFilter).then((res) => res),
+  });
+};
+
+// Hook pour créer une distribution d'aliment
+export const useCreateFeedDistribution = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createFeedDistribution,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feedDistributions'] });
     },
   });
 };

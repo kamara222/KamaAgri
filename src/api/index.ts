@@ -21,6 +21,16 @@ interface Mortality {
   cause: string;
 }
 
+// Interface pour une distribution d'aliment
+interface FeedDistribution {
+  id: string;
+  date: string;
+  nom_alimentation: string;
+  type: string;
+  poids: number;
+  nombre?: number;
+}
+
 export const getEleves = async () => {
   const endpoint = '/eleves';
   try {
@@ -85,6 +95,36 @@ export const createMortality = async (mortality: {
   const endpoint = '/mortalite-poulet';
   try {
     const res: AxiosResponse<Mortality> = await api.post(endpoint, mortality);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Récupérer la liste des distributions d'aliments
+export const getFeedDistributions = async (typeFilter?: string) => {
+  const endpoint = typeFilter ? `/alimentation-poulet?type=${encodeURIComponent(typeFilter)}` : '/alimentation-poulet';
+  try {
+    const res: AxiosResponse<FeedDistribution[]> = await api.get(endpoint);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Créer une nouvelle distribution d'aliment
+export const createFeedDistribution = async (distribution: {
+  date?: string;
+  nom_alimentation: string;
+  type: string;
+  poids: number;
+  nombre?: number;
+}) => {
+  const endpoint = '/alimentation-poulet';
+  try {
+    const res: AxiosResponse<FeedDistribution> = await api.post(endpoint, distribution);
     return res.data;
   } catch (error) {
     console.error('API error:', endpoint, error);

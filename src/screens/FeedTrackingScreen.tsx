@@ -1,4 +1,3 @@
-// src/screens/FeedTrackingScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -6,38 +5,34 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
+import Toast from 'react-native-toast-message';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddFeedDistributionModal from '../components/AddFeedDistributionModal';
+import { useFeedDistributions, useCreateFeedDistribution, useLots } from '../services';
 
-// Données mock pour la liste des distributions (à remplacer par API)
-const mockDistributions = [
-  {
-    id: '1',
-    date: '2025-05-10',
-    lot: 'Ross 308 - Bâtiment A',
-    typeAliment: 'Granulés démarrage',
-    quantite: 200,
-  },
-  {
-    id: '2',
-    date: '2025-05-08',
-    lot: 'Cobb 500 - Bâtiment B',
-    typeAliment: 'Granulés croissance',
-    quantite: 150,
-  },
-];
-
-// Types pour une distribution
+// Interface pour une distribution d'aliment
 interface FeedDistribution {
   id: string;
   date: string;
-  lot: string;
-  typeAliment: string;
-  quantite: number;
+  nom_alimentation: string;
+  type: string;
+  poids: number;
+  nombre?: number;
+}
+
+// Interface pour un lot
+interface Lot {
+  id: string;
+  batiment: string | null;
+  race: string | null;
+  date: string;
+  nombre: number;
+  poids_moyen: number;
 }
 
 const FeedTrackingScreen: React.FC = () => {
@@ -46,17 +41,44 @@ const FeedTrackingScreen: React.FC = () => {
   const [filterTypeAliment, setFilterTypeAliment] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Options pour les filtres
-  const lots = [
+  // Récupérer les distributions via API
+  const { data: distributions, isLoading, error } = useFeedDistributions(
+    filterTypeAliment || undefined
+  );
+
+  // Récupérer les lots pour les options de filtre
+  const { data: lots } = useLots();
+
+  // Mutation pour créer une distribution
+  const createFeedDistributionMutation = useCreateFeedDistribution();
+
+  // Gérer les erreurs
+  if (error) {
+    Toast.show({
+      type: 'errorToast',
+      props: {
+        message: 'Erreur lors du chargement des distributions',
+      },
+    });
+  }
+
+  // Créer les options pour les lots dynamiquement
+  const lotOptions = [
     { label: 'Tous les lots', value: '' },
-    { label: 'Ross 308 - Bâtiment A', value: 'Ross 308 - Bâtiment A' },
-    { label: 'Cobb 500 - Bâtiment B', value: 'Cobb 500 - Bâtiment B' },
+    ...(lots?.map((lot) => ({
+      label: `${lot.race || 'Inconnu'} - ${lot.batiment || 'Inconnu'}`,
+      value: `${lot.race || 'Inconnu'} - ${lot.batiment || 'Inconnu'}`,
+    })) || []),
   ];
+
+  // Options pour les périodes
   const periods = [
     { label: 'Toutes périodes', value: '' },
     { label: 'Dernière semaine', value: 'week' },
     { label: 'Dernier mois', value: 'month' },
   ];
+
+  // Options pour les types d'aliments (mockées, pas d'API fournie)
   const typesAliment = [
     { label: 'Tous les types', value: '' },
     { label: 'Granulés démarrage', value: 'Granulés démarrage' },
@@ -64,33 +86,73 @@ const FeedTrackingScreen: React.FC = () => {
     { label: 'Granulés finition', value: 'Granulés finition' },
   ];
 
-  // Filtrer les distributions avec gestion des erreurs
-  const filteredDistributions = mockDistributions.filter((distribution) => {
+  // Filtrer les distributions localement
+  const filteredDistributions = distributions?.filter((distribution) => {
     try {
-      const matchesLot = !filterLot || distribution.lot === filterLot;
+      const lotString = `${distribution.nom_alimentation || 'Inconnu'}`;
+      const matchesLot = !filterLot || lotString.includes(filterLot.split(' - ')[1] || '');
       const matchesPeriod =
         !filterPeriod ||
         (filterPeriod === 'week' && distribution.date >= '2025-05-06') ||
         (filterPeriod === 'month' && distribution.date >= '2025-04-10');
       const matchesTypeAliment =
-        !filterTypeAliment || distribution.typeAliment === filterTypeAliment;
+        !filterTypeAliment || distribution.type === filterTypeAliment;
       return matchesLot && matchesPeriod && matchesTypeAliment;
     } catch (error) {
       console.error('Erreur de filtrage:', error);
       return true;
     }
-  });
+  }) || [];
+
+  // Gérer la soumission du modal
+  const handleAddDistribution = (form: {
+    date: Date;
+    lot: string;
+    typeAliment: string;
+    quantite: string;
+  }) => {
+    const [race, nom_alimentation] = form.lot.split(' - ');
+    createFeedDistributionMutation.mutate(
+      {
+        date: form.date.toISOString().split('T')[0], // Format ISO
+        nom_alimentation,
+        type: form.typeAliment,
+        poids: parseFloat(form.quantite),
+        nombre: parseFloat(form.quantite), // Optionnel, mais inclus ici pour cohérence
+      },
+      {
+        onSuccess: () => {
+          Toast.show({
+            type: 'successToast',
+            props: {
+              message: 'Distribution ajoutée avec succès',
+            },
+          });
+          setIsModalVisible(false);
+        },
+        onError: (err) => {
+          Toast.show({
+            type: 'errorToast',
+            props: {
+              message: 'Erreur lors de l’ajout de la distribution',
+            },
+          });
+        },
+      }
+    );
+  };
 
   // Rendu de chaque carte de distribution
   const renderDistributionItem = ({ item }: { item: FeedDistribution }) => (
     <Animatable.View animation="fadeInUp" duration={500} style={styles.distributionCard}>
       <View style={styles.cardHeader}>
         <Icon name="restaurant" size={28} color={COLORS.accent} />
-        <Text style={styles.cardTitle}>{item.lot}</Text>
+        <Text style={styles.cardTitle}>{item.nom_alimentation || 'Inconnu'}</Text>
       </View>
       <Text style={styles.cardDetail}>Date: {item.date}</Text>
-      <Text style={styles.cardDetail}>Type: {item.typeAliment}</Text>
-      <Text style={styles.cardDetail}>Quantité: {item.quantite} kg</Text>
+      <Text style={styles.cardDetail}>Type: {item.type}</Text>
+      <Text style={styles.cardDetail}>Quantité: {item.poids} kg</Text>
+      {item.nombre && <Text style={styles.cardDetail}>Nombre: {item.nombre}</Text>}
     </Animatable.View>
   );
 
@@ -99,7 +161,7 @@ const FeedTrackingScreen: React.FC = () => {
       {/* Filtres */}
       <View style={styles.filterContainer}>
         <CustomSelect
-          options={lots}
+          options={lotOptions}
           value={filterLot}
           onChange={setFilterLot}
           placeholder="Filtrer par lot"
@@ -119,21 +181,29 @@ const FeedTrackingScreen: React.FC = () => {
       </View>
 
       {/* Liste des distributions */}
-      <FlatList
-        data={filteredDistributions}
-        renderItem={renderDistributionItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>Aucune distribution enregistrée</Text>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Chargement des distributions...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredDistributions}
+          renderItem={renderDistributionItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>Aucune distribution enregistrée</Text>
+          }
+        />
+      )}
 
       {/* Bouton flottant */}
       <Animatable.View animation="bounceIn" duration={1000}>
         <TouchableOpacity
           style={styles.fab}
           onPress={() => setIsModalVisible(true)}
+          accessibilityLabel="Ajouter une nouvelle distribution"
         >
           <Icon name="add" size={30} color={COLORS.white} />
         </TouchableOpacity>
@@ -143,11 +213,8 @@ const FeedTrackingScreen: React.FC = () => {
       <AddFeedDistributionModal
         isVisible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
-        onSubmit={(distribution) => {
-          console.log('Nouvelle distribution:', distribution);
-          setIsModalVisible(false);
-          // TODO: Envoyer au backend
-        }}
+        onSubmit={handleAddDistribution}
+        lots={lotOptions} // Passer les options dynamiques
       />
     </View>
   );
@@ -215,6 +282,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginTop: SIZES.margin,
   },
 });
 
