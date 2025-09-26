@@ -166,7 +166,7 @@ const LoginScreen = ({ navigation }) => {
                 <Ionicons name="leaf" size={36} color="#fff" style={styles.leafIcon} />
               </View>
               <Text style={styles.welcomeText}>Bienvenue</Text>
-              <Text style={styles.appName}>AquaFarm Pro</Text>
+              <Text style={styles.appName}>AquaFerme Pro</Text>
             </View>
 
             {/* Formulaire de connexion */}

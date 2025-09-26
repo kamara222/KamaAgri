@@ -102,7 +102,7 @@ const SplashScreen = ({ navigation }) => {
             },
           ]}
         >
-          <Text style={styles.title}>AquaFarm Pro</Text>
+          <Text style={styles.title}>AquaFerme Pro</Text>
           <Text style={styles.subtitle}>Gestion Pisciculture & Aviculture</Text>
         </Animated.View>
 
