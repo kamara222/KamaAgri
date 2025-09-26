@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,61 +13,136 @@ import Modal from 'react-native-modal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import Toast from 'react-native-toast-message';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from './CustomSelect';
+import { useRaces } from '../services';
 
 // Types pour le formulaire
 interface MortalityForm {
   date: Date;
-  lot: string;
+  batiment: string;
+  race: string;
   nombreMorts: string;
   cause: string;
-  customCause?: string;
 }
 
 interface AddMortalityModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (mortality: MortalityForm) => void;
-  lots: { label: string; value: string }[]; // Options dynamiques
+  resetForm: boolean;
 }
 
 const AddMortalityModal: React.FC<AddMortalityModalProps> = ({
   isVisible,
   onClose,
   onSubmit,
-  lots,
+  resetForm,
 }) => {
   // État du formulaire
   const [form, setForm] = useState<MortalityForm>({
     date: new Date(),
-    lot: '',
+    batiment: '',
+    race: '',
     nombreMorts: '',
     cause: '',
-    customCause: '',
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Réinitialiser le formulaire lorsque resetForm est true
+  useEffect(() => {
+    if (isVisible && resetForm) {
+      setForm({
+        date: new Date(),
+        batiment: '',
+        race: '',
+        nombreMorts: '',
+        cause: '',
+      });
+      setErrors({});
+      setShowDatePicker(false);
+    }
+  }, [isVisible, resetForm]);
+
+  // Récupérer les races via API
+  const { data: races, isLoading: racesLoading, error: racesError } = useRaces();
+
+  // Fallback statique si API vide ou erreur
+  const fallbackRaces = [
+    { code: 'ross_308', nom: 'Ross 308' },
+    { code: 'cobb_500', nom: 'Cobb 500' },
+    { code: 'poulets_africains', nom: 'Poulets africains' },
+    { code: 'pondeuses', nom: 'Pondeuses' },
+  ];
+
+  // Options des races
+  const raceOptions = (races && races.length > 0
+    ? [
+        { key: 'default', label: 'Sélectionner une race', value: '' },
+        ...races.map((race: { code: string; nom: string }, index: number) => ({
+          key: race.code || `race-${index}`,
+          label: race.nom,
+          value: race.code,
+        })),
+      ]
+    : [
+        { key: 'default', label: 'Sélectionner une race', value: '' },
+        ...fallbackRaces.map((race, index) => ({
+          key: race.code || `fallback-${index}`,
+          label: race.nom,
+          value: race.code,
+        })),
+      ]) || [{ key: 'loading', label: 'Chargement...', value: '' }];
+
+  // Feedback si fallback utilisé
+  useEffect(() => {
+    if (isVisible && (!races || races.length === 0 || racesError)) {
+      console.warn('Aucune race disponible depuis l\'API. Utilisation du fallback statique.');
+      Toast.show({
+        type: 'info',
+        text1: 'Information',
+        text2: 'Aucune race chargée depuis le serveur. Utilisation de races par défaut.',
+      });
+    } else if (isVisible && races) {
+      console.log('Races chargées:', races);
+      console.log('Options générées:', raceOptions);
+    }
+  }, [isVisible, races, racesError]);
+
+  // Options pour les bâtiments
+  const batiments = [
+    { key: 'default-bat', label: 'Sélectionner un bâtiment', value: '' },
+    { key: 'a', label: 'Bâtiment A', value: 'Bâtiment A' },
+    { key: 'b', label: 'Bâtiment B', value: 'Bâtiment B' },
+    { key: 'c', label: 'Bâtiment C', value: 'Bâtiment C' },
+  ];
+
+  // Log pour déboguer les options de bâtiments
+  useEffect(() => {
+    if (isVisible) {
+      console.log('Options des bâtiments dans le modal:', batiments);
+    }
+  }, [isVisible]);
+
   // Options pour les causes
   const causes = [
-    { label: 'Sélectionner une cause', value: '' },
-    { label: 'Maladie', value: 'Maladie' },
-    { label: 'Chaleur excessive', value: 'Chaleur excessive' },
-    { label: 'Prédation', value: 'Prédation' },
-    { label: 'Autre', value: 'Autre' },
+    { key: 'default', label: 'Sélectionner une cause', value: '' },
+    { key: 'maladie', label: 'Maladie', value: 'Maladie' },
+    { key: 'chaleur', label: 'Chaleur excessive', value: 'Chaleur excessive' },
+    { key: 'predation', label: 'Prédation', value: 'Prédation' },
   ];
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
     if (!form.date) newErrors.date = 'Date requise';
-    if (!form.lot) newErrors.lot = 'Lot requis';
+    if (!form.batiment) newErrors.batiment = 'Bâtiment requis';
+    if (!form.race) newErrors.race = 'Race requise';
     if (!form.nombreMorts || parseInt(form.nombreMorts) <= 0)
       newErrors.nombreMorts = 'Nombre positif requis';
     if (!form.cause) newErrors.cause = 'Cause requise';
-    if (form.cause === 'Autre' && !form.customCause)
-      newErrors.customCause = 'Cause personnalisée requise';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -75,6 +150,7 @@ const AddMortalityModal: React.FC<AddMortalityModalProps> = ({
   // Gestion de la soumission
   const handleSubmit = () => {
     if (validateForm()) {
+      console.log('Formulaire soumis:', form);
       onSubmit(form);
     }
   };
@@ -138,18 +214,35 @@ const AddMortalityModal: React.FC<AddMortalityModalProps> = ({
               {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
             </View>
 
-            {/* Champ Lot */}
+            {/* Champ Bâtiment */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Lot concerné *</Text>
+              <Text style={styles.label}>Bâtiment *</Text>
               <CustomSelect
-                options={lots}
-                value={form.lot}
+                options={batiments}
+                value={form.batiment}
                 onChange={(value) => {
-                  setForm({ ...form, lot: value });
-                  setErrors({ ...errors, lot: '' });
+                  setForm({ ...form, batiment: value });
+                  setErrors({ ...errors, batiment: '' });
                 }}
-                placeholder="Sélectionner un lot"
-                error={errors.lot}
+                placeholder="Sélectionner un bâtiment"
+                error={errors.batiment}
+              />
+            </View>
+
+            {/* Champ Race */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Race *</Text>
+              <CustomSelect
+                options={raceOptions}
+                value={form.race}
+                onChange={(value) => {
+                  console.log('Race sélectionnée:', value);
+                  setForm({ ...form, race: value });
+                  setErrors({ ...errors, race: '' });
+                }}
+                placeholder="Sélectionner une race"
+                error={errors.race}
+                disabled={racesLoading}
               />
             </View>
 
@@ -179,35 +272,13 @@ const AddMortalityModal: React.FC<AddMortalityModalProps> = ({
                 options={causes}
                 value={form.cause}
                 onChange={(value) => {
-                  setForm({ ...form, cause: value, customCause: '' });
-                  setErrors({ ...errors, cause: '', customCause: '' });
+                  setForm({ ...form, cause: value });
+                  setErrors({ ...errors, cause: '' });
                 }}
                 placeholder="Sélectionner une cause"
                 error={errors.cause}
               />
             </View>
-
-            {/* Champ Cause personnalisée */}
-            {form.cause === 'Autre' && (
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Cause personnalisée *</Text>
-                <TextInput
-                  style={[styles.input, errors.customCause && styles.inputError]}
-                  value={form.customCause}
-                  onChangeText={(text) => {
-                    setForm({ ...form, customCause: text });
-                    setErrors({ ...errors, customCause: '' });
-                  }}
-                  placeholder="Décrivez la cause"
-                  placeholderTextColor={COLORS.textLight}
-                  multiline
-                  numberOfLines={3}
-                />
-                {errors.customCause && (
-                  <Text style={styles.errorText}>{errors.customCause}</Text>
-                )}
-              </View>
-            )}
 
             {/* Bouton de soumission */}
             <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
@@ -241,7 +312,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: SIZES.radius,
     borderTopRightRadius: SIZES.radius,
     padding: SIZES.padding,
-    minHeight: '40%',
+    minHeight: '50%',
   },
   modalHandle: {
     width: 40,
@@ -269,7 +340,6 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontMedium,
     fontFamily: FONTS.medium,
     color: COLORS.text,
-    marginBottom: 8,
   },
   input: {
     backgroundColor: COLORS.white,
@@ -311,7 +381,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
     alignItems: 'center',
-    backgroundColor: COLORS.secondary, // Remplacement temporaire
+    backgroundColor: COLORS.secondary,
   },
   submitButtonText: {
     fontSize: SIZES.fontLarge,

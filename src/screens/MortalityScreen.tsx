@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
@@ -13,14 +14,14 @@ import Toast from 'react-native-toast-message';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddMortalityModal from '../components/AddMortalityModal';
-import { useMortalities, useCreateMortality, useLots } from '../services';
+import { useMortalities, useCreateMortality, useDeleteMortality, useLots } from '../services';
 
 // Interface pour une mortalité
 interface Mortality {
   id: string;
   date: string;
   batiment: string;
-  race: string;
+  race: string | { nom: string; code: string }; // Accepte race comme chaîne ou objet
   nombre: number;
   cause: string;
 }
@@ -29,25 +30,28 @@ interface Mortality {
 interface Lot {
   id: string;
   batiment: string | null;
-  race: string | null;
+  race: string | { nom: string; code: string } | null;
   date: string;
   nombre: number;
   poids_moyen: number;
 }
 
 const MortalityScreen: React.FC = () => {
-  const [filterLot, setFilterLot] = useState('');
+  const [filterBatiment, setFilterBatiment] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [resetForm, setResetForm] = useState(false);
 
   // Récupérer les mortalités via API
-  const { data: mortalities, isLoading, error } = useMortalities(filterLot ? filterLot.split(' - ')[0] : undefined);
+  const { data: mortalities, isLoading, error } = useMortalities();
 
-  // Récupérer les lots pour les options de filtre
+  // Récupérer les lots pour vérification
   const { data: lots } = useLots();
 
   // Mutation pour créer une mortalité
   const createMortalityMutation = useCreateMortality();
+  // Mutation pour supprimer une mortalité
+  const deleteMortalityMutation = useDeleteMortality();
 
   // Gérer les erreurs
   if (error) {
@@ -59,14 +63,23 @@ const MortalityScreen: React.FC = () => {
     });
   }
 
-  // Créer les options pour les lots dynamiquement
-  const lotOptions = [
-    { label: 'Tous les lots', value: '' },
-    ...(lots?.map((lot) => ({
-      label: `${lot.race || 'Inconnu'} - ${lot.batiment || 'Inconnu'}`,
-      value: `${lot.race || 'Inconnu'} - ${lot.batiment || 'Inconnu'}`,
-    })) || []),
+  // Créer les options pour les bâtiments à partir des mortalités
+  const batimentOptions = [
+    { label: 'Tous les bâtiments', value: '' },
+    ...(mortalities
+      ? [...new Set(mortalities.map((mortality) => mortality.batiment || 'Inconnu'))].map((batiment) => ({
+          label: batiment,
+          value: batiment,
+        }))
+      : []),
+    // Fallback pour inclure Bâtiment C si non présent dans les mortalités
+    ...(mortalities && !mortalities.some((m) => m.batiment === 'Bâtiment C')
+      ? [{ label: 'Bâtiment C', value: 'Bâtiment C' }]
+      : []),
   ];
+
+  // Log pour déboguer les options de bâtiments
+  console.log('Options des bâtiments:', batimentOptions);
 
   // Options pour les périodes
   const periods = [
@@ -75,16 +88,30 @@ const MortalityScreen: React.FC = () => {
     { label: 'Dernier mois', value: 'month' },
   ];
 
+  // Calculer les dates pour le filtrage par période
+  const today = new Date('2025-09-26'); // Date actuelle
+  const oneWeekAgo = new Date(today);
+  oneWeekAgo.setDate(today.getDate() - 7); // 7 jours avant
+  const oneMonthAgo = new Date(today);
+  oneMonthAgo.setMonth(today.getMonth() - 1); // 1 mois avant
+
   // Filtrer les mortalités localement
   const filteredMortalities = mortalities?.filter((mortality) => {
     try {
-      const lotString = `${mortality.race || 'Inconnu'} - ${mortality.batiment || 'Inconnu'}`;
-      const matchesLot = !filterLot || lotString === filterLot;
+      const matchesBatiment = !filterBatiment || mortality.batiment === filterBatiment;
+      const mortalityDate = new Date(mortality.date);
       const matchesPeriod =
         !filterPeriod ||
-        (filterPeriod === 'week' && mortality.date >= '2025-05-06') ||
-        (filterPeriod === 'month' && mortality.date >= '2025-04-10');
-      return matchesLot && matchesPeriod;
+        (filterPeriod === 'week' && mortalityDate >= oneWeekAgo) ||
+        (filterPeriod === 'month' && mortalityDate >= oneMonthAgo);
+      console.log('Filtrage:', {
+        id: mortality.id,
+        batiment: mortality.batiment,
+        matchesBatiment,
+        date: mortality.date,
+        matchesPeriod,
+      });
+      return matchesBatiment && matchesPeriod;
     } catch (error) {
       console.error('Erreur de filtrage:', error);
       return true;
@@ -94,19 +121,19 @@ const MortalityScreen: React.FC = () => {
   // Gérer la soumission du modal
   const handleAddMortality = (form: {
     date: Date;
-    lot: string;
+    batiment: string;
+    race: string;
     nombreMorts: string;
     cause: string;
-    customCause?: string;
   }) => {
-    const [race, batiment] = form.lot.split(' - ');
+    console.log('Soumission de la mortalité:', form); // Log pour vérifier form.race
     createMortalityMutation.mutate(
       {
-        date: form.date.toISOString().split('T')[0], // Format ISO
-        batiment,
-        race,
+        date: form.date.toISOString().split('T')[0],
+        batiment: form.batiment,
+        race: form.race, // form.race est une chaîne (code de la race)
         nombre: parseInt(form.nombreMorts),
-        cause: form.cause === 'Autre' ? form.customCause || 'Inconnue' : form.cause,
+        cause: form.cause,
       },
       {
         onSuccess: () => {
@@ -117,8 +144,10 @@ const MortalityScreen: React.FC = () => {
             },
           });
           setIsModalVisible(false);
+          setResetForm(true);
         },
         onError: (err) => {
+          console.error('Erreur lors de l’ajout de la mortalité:', err);
           Toast.show({
             type: 'errorToast',
             props: {
@@ -130,28 +159,83 @@ const MortalityScreen: React.FC = () => {
     );
   };
 
+  // Gérer la suppression d'une mortalité
+  const handleDeleteMortality = (mortalityId: string, mortality: Mortality) => {
+    const raceName = typeof mortality.race === 'string' ? mortality.race : mortality.race?.nom || 'Inconnu';
+    const displayString = `${raceName} - ${mortality.batiment || 'Inconnu'}`;
+    Alert.alert(
+      'Confirmer la suppression',
+      `Voulez-vous vraiment supprimer la mortalité pour ${displayString} ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            deleteMortalityMutation.mutate(mortalityId, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'successToast',
+                  props: {
+                    message: 'Mortalité supprimée avec succès',
+                  },
+                });
+              },
+              onError: () => {
+                Toast.show({
+                  type: 'errorToast',
+                  props: {
+                    message: 'Erreur lors de la suppression de la mortalité',
+                  },
+                });
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
+
   // Rendu de chaque carte de mortalité
-  const renderMortalityItem = ({ item }: { item: Mortality }) => (
-    <Animatable.View animation="fadeInUp" duration={500} style={styles.mortalityCard}>
-      <View style={styles.cardHeader}>
-        <Icon name="warning" size={28} color={COLORS.error} />
-        <Text style={styles.cardTitle}>{`${item.race || 'Inconnu'} - ${item.batiment || 'Inconnu'}`}</Text>
-      </View>
-      <Text style={styles.cardDetail}>Date: {item.date}</Text>
-      <Text style={styles.cardDetail}>Morts: {item.nombre}</Text>
-      <Text style={styles.cardDetail}>Cause: {item.cause}</Text>
-    </Animatable.View>
-  );
+  const renderMortalityItem = ({ item }: { item: Mortality }) => {
+    const raceName = typeof item.race === 'string' ? item.race : item.race?.nom || 'Inconnu';
+    console.log('Rendu de la mortalité:', { id: item.id, race: item.race, raceName }); // Log pour débogage
+    return (
+      <Animatable.View animation="fadeInUp" duration={500} style={styles.mortalityCard}>
+        <View style={styles.cardHeader}>
+          <Icon name="warning" size={28} color={COLORS.error} />
+          <Text style={styles.cardTitle}>
+            {`${raceName} - ${item.batiment || 'Inconnu'}`}
+          </Text>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteMortality(item.id, item)}
+          >
+            <Icon name="delete" size={24} color={COLORS.error} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.cardDetail}>Date: {item.date}</Text>
+        <Text style={styles.cardDetail}>Morts: {item.nombre}</Text>
+        <Text style={styles.cardDetail}>Cause: {item.cause}</Text>
+      </Animatable.View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       {/* Filtres */}
       <View style={styles.filterContainer}>
         <CustomSelect
-          options={lotOptions}
-          value={filterLot}
-          onChange={setFilterLot}
-          placeholder="Filtrer par lot"
+          options={batimentOptions}
+          value={filterBatiment}
+          onChange={(value) => {
+            console.log('Filtre bâtiment sélectionné:', value); // Log pour débogage
+            setFilterBatiment(value);
+          }}
+          placeholder="Filtrer par bâtiment"
         />
         <CustomSelect
           options={periods}
@@ -183,7 +267,10 @@ const MortalityScreen: React.FC = () => {
       <Animatable.View animation="bounceIn" duration={1000}>
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => setIsModalVisible(true)}
+          onPress={() => {
+            setIsModalVisible(true);
+            setResetForm(true);
+          }}
           accessibilityLabel="Ajouter une nouvelle mortalité"
         >
           <Icon name="add" size={30} color={COLORS.white} />
@@ -193,9 +280,12 @@ const MortalityScreen: React.FC = () => {
       {/* Modal pour ajouter une mortalité */}
       <AddMortalityModal
         isVisible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
+        onClose={() => {
+          setIsModalVisible(false);
+          setResetForm(false);
+        }}
         onSubmit={handleAddMortality}
-        lots={lotOptions} // Passer les options dynamiques
+        resetForm={resetForm}
       />
     </View>
   );
@@ -235,6 +325,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginLeft: SIZES.margin / 2,
+    flex: 1,
   },
   cardDetail: {
     fontSize: SIZES.fontMedium,
@@ -275,6 +366,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     color: COLORS.text,
     marginTop: SIZES.margin,
+  },
+  deleteButton: {
+    padding: 8,
   },
 });
 

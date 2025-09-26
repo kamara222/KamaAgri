@@ -3,10 +3,13 @@ import {
   getEleves,
   getLots,
   createLot,
+  deleteLot,
   getMortalities,
   createMortality,
+  deleteMortality,
   getFeedDistributions,
   createFeedDistribution,
+  deleteFeedDistribution,
   getBassins,
   createBassin,
   getEspeces,
@@ -23,6 +26,7 @@ import {
   logout,
 } from '../api';
 
+// Hook pour récupérer les élevages
 export const useEleves = () => {
   return useQuery({
     queryKey: ['consultations'],
@@ -49,6 +53,35 @@ export const useCreateLot = () => {
   });
 };
 
+// Hook pour mettre à jour un lot de poulets
+export const useUpdateLot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      fetch(`http://161.97.103.214:3002/poulet/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }).then((res) => res.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lots'] });
+    },
+  });
+};
+
+// Hook pour supprimer un lot de poulets
+export const useDeleteLot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteLot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lots'] });
+    },
+  });
+};
+
 // Hook pour récupérer les mortalités (poulets)
 export const useMortalities = (raceFilter?: string) => {
   return useQuery({
@@ -68,6 +101,17 @@ export const useCreateMortality = () => {
   });
 };
 
+// Hook pour supprimer une mortalité (poulets)
+export const useDeleteMortality = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteMortality,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mortalities'] });
+    },
+  });
+};
+
 // Hook pour récupérer les distributions d'aliments
 export const useFeedDistributions = (typeFilter?: string) => {
   return useQuery({
@@ -81,6 +125,17 @@ export const useCreateFeedDistribution = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createFeedDistribution,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feedDistributions'] });
+    },
+  });
+};
+
+// Hook pour supprimer une distribution d'aliment
+export const useDeleteFeedDistribution = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteFeedDistribution,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedDistributions'] });
     },

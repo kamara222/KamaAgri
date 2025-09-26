@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Toast from 'react-native-toast-message';
@@ -14,7 +15,7 @@ import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import AddLotModal from '../components/AddLotModal';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useLots, useCreateLot } from '../services';
+import { useLots, useCreateLot, useDeleteLot } from '../services';
 
 // Définir les types pour la navigation
 type RootStackParamList = {
@@ -26,11 +27,17 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+// Interface pour une race
+interface Race {
+  code: string;
+  nom: string;
+}
+
 // Interface pour un lot
 interface Lot {
   id: string;
   batiment: string | null;
-  race: string | null;
+  race: Race | string | null | undefined;
   date: string;
   nombre: number;
   poids_moyen: number;
@@ -40,12 +47,15 @@ const ChickenManagementScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [resetForm, setResetForm] = useState(false); // État pour déclencher la réinitialisation
 
   // Récupérer les lots via API
   const { data: lots, isLoading, error } = useLots(searchQuery ? searchQuery : undefined);
 
   // Mutation pour créer un lot
   const createLotMutation = useCreateLot();
+  // Mutation pour supprimer un lot
+  const deleteLotMutation = useDeleteLot();
 
   // Gérer les erreurs
   if (error) {
@@ -57,12 +67,23 @@ const ChickenManagementScreen: React.FC = () => {
     });
   }
 
-  // Filtrer les lots localement avec vérification des null
-  const filteredLots = lots?.filter(
-    (lot) =>
-      (lot.race?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (lot.batiment?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-  ) || [];
+  // Filtrer les lots localement avec vérification des null/undefined
+  const filteredLots = lots?.filter((lot) => {
+    console.log('Valeur de lot.race:', lot.race);
+    const race = lot.race
+      ? typeof lot.race === 'string'
+        ? lot.race.toLowerCase()
+        : lot.race.nom
+        ? lot.race.nom.toLowerCase()
+        : ''
+      : '';
+    const batiment =
+      lot.batiment !== null && lot.batiment !== undefined ? String(lot.batiment).toLowerCase() : '';
+    return (
+      race.includes(searchQuery.toLowerCase()) ||
+      batiment.includes(searchQuery.toLowerCase())
+    );
+  }) || [];
 
   // Gérer la soumission du modal
   const handleAddLot = (form: {
@@ -72,16 +93,19 @@ const ChickenManagementScreen: React.FC = () => {
     batiment: string;
     race: string;
   }) => {
+    const lotData = {
+      batiment: form.batiment,
+      race: form.race,
+      date: form.dateArrivee.toISOString().split('T')[0],
+      nombre: parseInt(form.nombrePoulets),
+      poids_moyen: parseFloat(form.poidsMoyen),
+    };
+    console.log('Données envoyées pour création du lot:', lotData);
     createLotMutation.mutate(
+      lotData,
       {
-        batiment: form.batiment,
-        race: form.race,
-        date: form.dateArrivee.toISOString().split('T')[0], // Format ISO (YYYY-MM-DD)
-        nombre: parseInt(form.nombrePoulets),
-        poids_moyen: parseFloat(form.poidsMoyen),
-      },
-      {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          console.log('Lot créé avec succès:', data);
           Toast.show({
             type: 'successToast',
             props: {
@@ -89,8 +113,10 @@ const ChickenManagementScreen: React.FC = () => {
             },
           });
           setIsModalVisible(false);
+          setResetForm(true); // Déclencher la réinitialisation pour la prochaine ouverture
         },
         onError: (err) => {
+          console.error('Erreur lors de la création du lot:', err);
           Toast.show({
             type: 'errorToast',
             props: {
@@ -102,17 +128,64 @@ const ChickenManagementScreen: React.FC = () => {
     );
   };
 
+  // Gérer la suppression d'un lot
+  const handleDeleteLot = (lotId: string, lotRace: Race | string | null | undefined) => {
+    const raceDisplay = typeof lotRace === 'string' ? lotRace : lotRace?.nom || 'Inconnu';
+    Alert.alert(
+      'Confirmer la suppression',
+      `Voulez-vous vraiment supprimer le lot ${raceDisplay} ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            deleteLotMutation.mutate(lotId, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'successToast',
+                  props: {
+                    message: 'Lot supprimé avec succès',
+                  },
+                });
+              },
+              onError: () => {
+                Toast.show({
+                  type: 'errorToast',
+                  props: {
+                    message: 'Erreur lors de la suppression du lot',
+                  },
+                });
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
+
   // Rendu de chaque carte de lot
   const renderLotItem = ({ item }: { item: Lot }) => (
     <TouchableOpacity
       style={styles.lotCard}
       onPress={() => {
-        console.log('Modifier lot', item.id); // À remplacer par EditLotModal
+        console.log('Modifier lot', item.id);
       }}
     >
       <View style={styles.lotHeader}>
         <Icon name="egg" size={24} color={COLORS.primary} />
-        <Text style={styles.lotTitle}>{item.race || 'Inconnu'}</Text>
+        <Text style={styles.lotTitle}>
+          {typeof item.race === 'string' ? item.race : item.race?.nom || 'Inconnu'}
+        </Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteLot(item.id, item.race)}
+        >
+          <Icon name="delete" size={24} color={COLORS.error} />
+        </TouchableOpacity>
       </View>
       <Text style={styles.lotDetail}>Arrivée: {item.date}</Text>
       <Text style={styles.lotDetail}>Poulets: {item.nombre}</Text>
@@ -120,6 +193,8 @@ const ChickenManagementScreen: React.FC = () => {
       <Text style={styles.lotDetail}>Bâtiment: {item.batiment || 'Inconnu'}</Text>
     </TouchableOpacity>
   );
+
+  console.log('Lots chargés:', lots);
 
   return (
     <View style={styles.container}>
@@ -178,7 +253,10 @@ const ChickenManagementScreen: React.FC = () => {
       {/* Bouton flottant pour ajouter un lot */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => setIsModalVisible(true)}
+        onPress={() => {
+          setIsModalVisible(true);
+          setResetForm(true); // Réinitialiser le formulaire à l'ouverture
+        }}
         accessibilityLabel="Ajouter un nouveau lot"
       >
         <Icon name="add" size={30} color={COLORS.white} />
@@ -187,8 +265,12 @@ const ChickenManagementScreen: React.FC = () => {
       {/* Modal pour ajouter un lot */}
       <AddLotModal
         isVisible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
+        onClose={() => {
+          setIsModalVisible(false);
+          setResetForm(false); // Réinitialiser l'état après fermeture
+        }}
         onSubmit={handleAddLot}
+        resetForm={resetForm}
       />
     </View>
   );
@@ -259,6 +341,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginLeft: SIZES.margin / 2,
+    flex: 1,
   },
   lotDetail: {
     fontSize: SIZES.fontMedium,
@@ -299,6 +382,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     color: COLORS.text,
     marginTop: SIZES.margin,
+  },
+  deleteButton: {
+    padding: 8,
   },
 });
 

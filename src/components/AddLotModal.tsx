@@ -1,5 +1,4 @@
-// src/components/AddLotModal.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,8 +13,10 @@ import Modal from 'react-native-modal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import Toast from 'react-native-toast-message';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from './CustomSelect';
+import { useRaces } from '../services';
 
 // Types pour le formulaire
 interface LotForm {
@@ -30,6 +31,7 @@ interface AddLotModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (lot: LotForm) => void;
+  resetForm: boolean;
   initialData?: LotForm;
 }
 
@@ -37,6 +39,7 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
   isVisible,
   onClose,
   onSubmit,
+  resetForm,
   initialData,
 }) => {
   // État du formulaire
@@ -52,24 +55,71 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Options pour les dropdowns (mockées, à remplacer par API)
-  const batiments = [
-    { label: 'Sélectionner un bâtiment', value: '' },
-    { label: 'Bâtiment A', value: 'Bâtiment A' },
-    { label: 'Bâtiment B', value: 'Bâtiment B' },
-    { label: 'Bâtiment C', value: 'Bâtiment C' },
+  // Réinitialiser le formulaire lorsque resetForm est true
+  useEffect(() => {
+    if (isVisible && resetForm) {
+      setForm({
+        dateArrivee: new Date(),
+        nombrePoulets: '',
+        poidsMoyen: '',
+        batiment: '',
+        race: '',
+      });
+      setErrors({});
+      setShowDatePicker(false);
+    }
+  }, [isVisible, resetForm]);
 
+  // Récupérer les races via API
+  const { data: races, isLoading: racesLoading, error: racesError } = useRaces();
+
+  // Fallback statique si API vide ou erreur
+  const fallbackRaces = [
+    { code: 'ross_308', nom: 'Ross 308' },
+    { code: 'cobb_500', nom: 'Cobb 500' },
+    { code: 'poulets_africains', nom: 'Poulets africains' },
+    { code: 'pondeuses', nom: 'Pondeuses' },
   ];
-  const races = [
-    { label: 'Sélectionner une race', value: '' },
-    { label: 'Ross 308', value: 'Ross 308' },
-    { label: 'Cobb 500', value: 'Cobb 500' },
-    { label: 'poulets africains', value: 'poulets africains' },
-    { label: 'Pondeuses', value: 'Pondeuses' },
-    // { label: 'Autre', value: 'Autre' },
 
+  // Options des races
+  const raceOptions = (races && races.length > 0
+    ? [
+        { key: 'default', label: 'Sélectionner une race', value: '' },
+        ...races.map((race: { code: string; nom: string }, index: number) => ({
+          key: race.code || `race-${index}`,
+          label: race.nom,
+          value: race.code,
+        })),
+      ]
+    : [
+        { key: 'default', label: 'Sélectionner une race', value: '' },
+        ...fallbackRaces.map((race, index) => ({
+          key: race.code || `fallback-${index}`,
+          label: race.nom,
+          value: race.code,
+        })),
+      ]) || [{ key: 'loading', label: 'Chargement...', value: '' }];
 
-  ];
+  // Feedback si fallback utilisé
+  useEffect(() => {
+    if (isVisible && (!races || races.length === 0 || racesError)) {
+      console.warn('Aucune race disponible depuis l\'API. Utilisation du fallback statique.');
+      Toast.show({
+        type: 'info',
+        text1: 'Information',
+        text2: 'Aucune race chargée depuis le serveur. Utilisation de races par défaut.',
+      });
+    } else if (isVisible && races) {
+      console.log('Races chargées:', races);
+      console.log('Options générées:', raceOptions);
+    }
+  }, [isVisible, races, racesError]);
+
+  // Gérer le changement de race
+  const handleRaceChange = (value: string) => {
+    setForm({ ...form, race: value });
+    setErrors({ ...errors, race: '' });
+  };
 
   // Validation du formulaire
   const validateForm = () => {
@@ -88,9 +138,18 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
   // Gestion de la soumission
   const handleSubmit = () => {
     if (validateForm()) {
+      console.log('Formulaire soumis:', form);
       onSubmit(form);
     }
   };
+
+  // Options pour les bâtiments
+  const batiments = [
+    { key: 'default-bat', label: 'Sélectionner un bâtiment', value: '' },
+    { key: 'a', label: 'Bâtiment A', value: 'Bâtiment A' },
+    { key: 'b', label: 'Bâtiment B', value: 'Bâtiment B' },
+    { key: 'c', label: 'Bâtiment C', value: 'Bâtiment C' },
+  ];
 
   return (
     <Modal
@@ -212,14 +271,12 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Race / Variété *</Text>
               <CustomSelect
-                options={races}
+                options={raceOptions}
                 value={form.race}
-                onChange={(value) => {
-                  setForm({ ...form, race: value });
-                  setErrors({ ...errors, race: '' });
-                }}
+                onChange={handleRaceChange}
                 placeholder="Sélectionner une race"
                 error={errors.race}
+                disabled={racesLoading}
               />
             </View>
 
@@ -251,7 +308,6 @@ const styles = StyleSheet.create({
   scrollContainer: {
     // flexGrow: 1,
     paddingBottom: 20,
-
   },
   modalContent: {
     backgroundColor: COLORS.white,
@@ -328,7 +384,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
     alignItems: 'center',
-    backgroundColor: COLORS.secondary, // Remplacement temporaire
+    backgroundColor: COLORS.secondary,
   },
   submitButtonText: {
     fontSize: SIZES.fontLarge,

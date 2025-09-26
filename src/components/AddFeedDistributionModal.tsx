@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import CustomSelect from './CustomSelect';
 // Types pour le formulaire
 interface FeedDistributionForm {
   date: Date;
-  lot: string;
+  batiment: string;
   typeAliment: string;
   quantite: string;
 }
@@ -28,38 +28,61 @@ interface AddFeedDistributionModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (distribution: FeedDistributionForm) => void;
-  lots: { label: string; value: string }[]; // Options dynamiques
+  batiments: { label: string; value: string }[]; // Options dynamiques
+  resetForm?: boolean;
 }
 
 const AddFeedDistributionModal: React.FC<AddFeedDistributionModalProps> = ({
   isVisible,
   onClose,
   onSubmit,
-  lots,
+  batiments,
+  resetForm,
 }) => {
   // État du formulaire
   const [form, setForm] = useState<FeedDistributionForm>({
     date: new Date(),
-    lot: '',
+    batiment: '',
     typeAliment: '',
     quantite: '',
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Options pour les types d'aliments (mockées, pas d'API fournie)
+  // Réinitialiser le formulaire lorsque resetForm est true
+  useEffect(() => {
+    if (isVisible && resetForm) {
+      setForm({
+        date: new Date(),
+        batiment: '',
+        typeAliment: '',
+        quantite: '',
+      });
+      setErrors({});
+      setShowDatePicker(false);
+    }
+  }, [isVisible, resetForm]);
+
+  // Options pour les types d'aliments
   const typesAliment = [
-    { label: 'Sélectionner un type', value: '' },
-    { label: 'Granulés démarrage', value: 'Granulés démarrage' },
-    { label: 'Granulés croissance', value: 'Granulés croissance' },
-    { label: 'Granulés finition', value: 'Granulés finition' },
+    { key: 'default', label: 'Sélectionner un type', value: '' },
+    { key: 'demarrage', label: 'Granulés démarrage', value: 'Granulés démarrage' },
+    { key: 'croissance', label: 'Granulés croissance', value: 'Granulés croissance' },
+    { key: 'finition', label: 'Granulés finition', value: 'Granulés finition' },
   ];
+
+  // Log pour déboguer les options de bâtiments
+  useEffect(() => {
+    if (isVisible) {
+      console.log('Options des bâtiments dans le modal:', batiments);
+    }
+  }, [isVisible, batiments]);
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
     if (!form.date) newErrors.date = 'Date requise';
-    if (!form.lot) newErrors.lot = 'Lot requis';
+    if (!form.batiment) newErrors.batiment = 'Bâtiment requis';
     if (!form.typeAliment) newErrors.typeAliment = 'Type d’aliment requis';
     if (!form.quantite || parseFloat(form.quantite) <= 0)
       newErrors.quantite = 'Quantité positive requise';
@@ -70,6 +93,7 @@ const AddFeedDistributionModal: React.FC<AddFeedDistributionModalProps> = ({
   // Gestion de la soumission
   const handleSubmit = () => {
     if (validateForm()) {
+      console.log('Formulaire soumis:', form);
       onSubmit(form);
     }
   };
@@ -133,18 +157,19 @@ const AddFeedDistributionModal: React.FC<AddFeedDistributionModalProps> = ({
               {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
             </View>
 
-            {/* Champ Lot */}
+            {/* Champ Bâtiment */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Lot concerné *</Text>
+              <Text style={styles.label}>Bâtiment *</Text>
               <CustomSelect
-                options={lots}
-                value={form.lot}
+                options={batiments}
+                value={form.batiment}
                 onChange={(value) => {
-                  setForm({ ...form, lot: value });
-                  setErrors({ ...errors, lot: '' });
+                  console.log('Bâtiment sélectionné:', value);
+                  setForm({ ...form, batiment: value });
+                  setErrors({ ...errors, batiment: '' });
                 }}
-                placeholder="Sélectionner un lot"
-                error={errors.lot}
+                placeholder="Sélectionner un bâtiment"
+                error={errors.batiment}
               />
             </View>
 
@@ -284,7 +309,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
     alignItems: 'center',
-    backgroundColor: COLORS.accent, // Remplacement temporaire pour LinearGradient
+    backgroundColor: COLORS.accent,
   },
   submitButtonText: {
     fontSize: SIZES.fontLarge,
