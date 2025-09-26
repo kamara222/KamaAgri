@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -21,13 +21,19 @@ import Toast from "react-native-toast-message";
 // Types pour le formulaire
 interface SaleForm {
   date: string;
-  type_de_vente: string;
   bassin: string;
-  espece_poisson?: string;
+  espece_poisson: string; // Rendre obligatoire
   kg_poisson: string;
+  prix_kg_poisson: string;
   prix_total: string;
   nom_complet_client?: string;
   mode_paiement: string;
+}
+
+// Type pour une espèce
+interface Espece {
+  label: string;
+  value: string;
 }
 
 interface AddFishSaleModalProps {
@@ -43,11 +49,11 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
 }) => {
   // État du formulaire
   const [form, setForm] = useState<SaleForm>({
-    date: "",
-    type_de_vente: "",
+    date: new Date().toISOString(),
     bassin: "",
     espece_poisson: "",
     kg_poisson: "",
+    prix_kg_poisson: "",
     prix_total: "",
     nom_complet_client: "",
     mode_paiement: "",
@@ -62,22 +68,17 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
     { label: "Bassin Sud", value: "Bassin Sud" },
   ];
 
-  // Hook pour récupérer les espèces
-  const { data: especesData = [] } = useEspeces();
+  // Récupérer les espèces dynamiquement
+  const { data: especesData = [], isLoading: isEspecesLoading, isError: isEspecesError } = useEspeces();
   const especes = [
     { label: "Sélectionner une espèce", value: "" },
-    ...especesData.map((espece: { label: string; value: string }) => ({
+    ...especesData.map((espece: Espece) => ({
       label: espece.label,
       value: espece.value,
     })),
   ];
 
-  // Options pour les types de vente et modes de paiement
-  const typesVente = [
-    { label: "Sélectionner un type", value: "" },
-    { label: "Vente directe", value: "Vente directe" },
-    { label: "Vente en gros", value: "Vente en gros" },
-  ];
+  // Options pour les modes de paiement
   const modesPaiement = [
     { label: "Sélectionner un mode", value: "" },
     { label: "Espèces", value: "Espèces" },
@@ -86,19 +87,26 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
   ];
 
   // Hook pour créer une vente
-  const { mutate: createFishSale, isLoading: isSubmitting } =
-    useCreateFishSale();
+  const { mutate: createFishSale, isLoading: isSubmitting } = useCreateFishSale();
+
+  // Calculer le prix total automatiquement
+  useEffect(() => {
+    const kgPoisson = parseFloat(form.kg_poisson) || 0;
+    const prixKgPoisson = parseFloat(form.prix_kg_poisson) || 0;
+    const prixTotal = (kgPoisson * prixKgPoisson).toFixed(2);
+    setForm((prev) => ({ ...prev, prix_total: prixTotal }));
+  }, [form.kg_poisson, form.prix_kg_poisson]);
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
     if (!form.date) newErrors.date = "Date requise";
-    if (!form.type_de_vente) newErrors.type_de_vente = "Type de vente requis";
     if (!form.bassin) newErrors.bassin = "Bassin requis";
+    if (!form.espece_poisson) newErrors.espece_poisson = "Espèce requise"; // Rendre obligatoire
     if (!form.kg_poisson || parseFloat(form.kg_poisson) <= 0)
       newErrors.kg_poisson = "Quantité positive requise";
-    if (!form.prix_total || parseFloat(form.prix_total) <= 0)
-      newErrors.prix_total = "Prix positif requis";
+    if (!form.prix_kg_poisson || parseFloat(form.prix_kg_poisson) <= 0)
+      newErrors.prix_kg_poisson = "Prix par kg positif requis";
     if (!form.mode_paiement)
       newErrors.mode_paiement = "Mode de paiement requis";
     setErrors(newErrors);
@@ -110,18 +118,20 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
     if (validateForm()) {
       const saleData = {
         date: form.date,
-        type_de_vente: form.type_de_vente,
+        type_de_vente: "Poisson",
         bassin: form.bassin,
-        espece_poisson: form.espece_poisson || null,
+        espece_poisson: form.espece_poisson,
         kg_poisson: parseFloat(form.kg_poisson),
+        prix_kg_poisson: parseFloat(form.prix_kg_poisson),
         prix_total: parseFloat(form.prix_total),
         nom_complet_client: form.nom_complet_client || null,
         mode_paiement: form.mode_paiement,
       };
-      console.log("Données envoyées à l'API:", saleData); // Log pour déboguer
+      console.log("Données envoyées à l'API:", saleData);
+      console.log("Espèce sélectionnée:", form.espece_poisson);
       createFishSale(saleData, {
         onSuccess: (data) => {
-          console.log("Vente créée avec succès:", data);
+          console.log("Vente poisson créée avec succès:", data);
           Toast.show({
             type: "successToast",
             props: {
@@ -131,17 +141,16 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
           });
           onSubmit(form);
           setForm({
-            date: "",
-            type_de_vente: "",
+            date: new Date().toISOString(),
             bassin: "",
             espece_poisson: "",
             kg_poisson: "",
+            prix_kg_poisson: "",
             prix_total: "",
             nom_complet_client: "",
             mode_paiement: "",
           });
         },
-
         onError: (error: any) => {
           console.error("Erreur lors de la création de la vente:", error);
           console.error("Détails de l'erreur:", error.response?.data);
@@ -180,7 +189,7 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
             <View style={styles.modalHandle} />
             {/* En-tête du modal */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ajouter Vente</Text>
+              <Text style={styles.modalTitle}>Ajouter Vente Poisson</Text>
               <TouchableOpacity onPress={onClose}>
                 <Icon name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
@@ -222,21 +231,6 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
               )}
             </View>
 
-            {/* Champ Type de vente */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Type de vente *</Text>
-              <CustomSelect
-                options={typesVente}
-                value={form.type_de_vente}
-                onChange={(value) => {
-                  setForm({ ...form, type_de_vente: value });
-                  setErrors({ ...errors, type_de_vente: "" });
-                }}
-                placeholder="Sélectionner un type"
-                error={errors.type_de_vente}
-              />
-            </View>
-
             {/* Champ Bassin */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Bassin concerné *</Text>
@@ -254,7 +248,9 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
 
             {/* Champ Espèce */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Espèce (optionnel)</Text>
+              <Text style={styles.label}>Espèce *</Text>
+              {isEspecesLoading && <Text style={styles.loadingText}>Chargement des espèces...</Text>}
+              {isEspecesError && <Text style={styles.errorText}>Erreur lors du chargement des espèces</Text>}
               <CustomSelect
                 options={especes}
                 value={form.espece_poisson}
@@ -264,7 +260,11 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
                 }}
                 placeholder="Sélectionner une espèce"
                 error={errors.espece_poisson}
+                disabled={isEspecesLoading}
               />
+              {errors.espece_poisson && (
+                <Text style={styles.errorText}>{errors.espece_poisson}</Text>
+              )}
             </View>
 
             {/* Champ Quantité */}
@@ -286,18 +286,33 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
               )}
             </View>
 
-            {/* Champ Prix total */}
+            {/* Champ Prix par kg */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Prix par kg (XAF) *</Text>
+              <TextInput
+                style={[styles.input, errors.prix_kg_poisson && styles.inputError]}
+                keyboardType="decimal-pad"
+                value={form.prix_kg_poisson}
+                onChangeText={(text) => {
+                  setForm({ ...form, prix_kg_poisson: text });
+                  setErrors({ ...errors, prix_kg_poisson: "" });
+                }}
+                placeholder="Ex: 5000"
+                placeholderTextColor={COLORS.textLight}
+              />
+              {errors.prix_kg_poisson && (
+                <Text style={styles.errorText}>{errors.prix_kg_poisson}</Text>
+              )}
+            </View>
+
+            {/* Champ Prix total (lecture seule) */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Prix total (XAF) *</Text>
               <TextInput
-                style={[styles.input, errors.prix_total && styles.inputError]}
-                keyboardType="decimal-pad"
+                style={[styles.input, styles.readOnlyInput]}
                 value={form.prix_total}
-                onChangeText={(text) => {
-                  setForm({ ...form, prix_total: text });
-                  setErrors({ ...errors, prix_total: "" });
-                }}
-                placeholder="Ex: 250000"
+                editable={false}
+                placeholder="Calculé automatiquement"
                 placeholderTextColor={COLORS.textLight}
               />
               {errors.prix_total && (
@@ -309,11 +324,12 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Client (optionnel)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.nom_complet_client && styles.inputError]}
                 value={form.nom_complet_client}
-                onChangeText={(text) =>
-                  setForm({ ...form, nom_complet_client: text })
-                }
+                onChangeText={(text) => {
+                  setForm({ ...form, nom_complet_client: text });
+                  setErrors({ ...errors, nom_complet_client: "" });
+                }}
                 placeholder="Ex: Marché Local"
                 placeholderTextColor={COLORS.textLight}
               />
@@ -341,10 +357,7 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
               duration={2000}
             >
               <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  isSubmitting && styles.disabledButton,
-                ]}
+                style={[styles.submitButton, isSubmitting && styles.disabledButton]}
                 onPress={handleSubmit}
                 disabled={isSubmitting}
               >
@@ -435,10 +448,20 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: COLORS.error,
   },
+  readOnlyInput: {
+    backgroundColor: COLORS.textLight,
+    opacity: 0.7,
+  },
   errorText: {
     fontSize: SIZES.fontSmall,
     fontFamily: FONTS.regular,
     color: COLORS.error,
+    marginTop: 4,
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
     marginTop: 4,
   },
   submitButton: {

@@ -21,6 +21,7 @@ import {
   createFishSale,
   getChickenSales,
   createChickenSale,
+  deleteChickenSale,
   getRaces,
   login,
   logout,
@@ -262,6 +263,29 @@ export const useCreateChickenSale = () => {
   });
 };
 
+// Hook pour supprimer une vente de poulet
+export const useDeleteChickenSale = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteChickenSale,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chickenSales'] });
+    },
+  });
+};
+
+//Hook pour supprimer une vente de poisson
+
+export const useDeleteFishSale = () => {
+    const queryClient = useQueryClient();
+    return useMutation ({
+        mutationFn: deleteChickenSale,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['fishSales'] });
+        },
+    })
+}
+
 // Hook pour l'authentification
 export const useLogin = () => {
   return useMutation({
@@ -289,3 +313,16 @@ export const useLogout = () => {
     },
   });
 };
+
+// // Hook pour supprimer une vente de poisson
+
+// export const deleteFishSale = async (id: string) => {
+//   const endpoint = `/ventes/${id}`;
+//   try {
+//     const res: AxiosResponse = await api.delete(endpoint);
+//     return res.data;
+//   } catch (error) {
+//     console.error('API error:', endpoint, error);
+//     throw error;
+//   }
+// };

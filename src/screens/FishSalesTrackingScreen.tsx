@@ -5,13 +5,16 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  TextInput,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddFishSaleModal from '../components/AddFishSaleModal';
-import { useFishSales } from '../services';
+import { useFishSales, useEspeces, useDeleteFishSale } from '../services';
+import Toast from 'react-native-toast-message';
 
 // Types pour une vente
 interface FishSale {
@@ -19,19 +22,26 @@ interface FishSale {
   date: string;
   type_de_vente: string;
   bassin: string;
-  espece_poisson?: string;
+  espece_poisson?: string | null;
   kg_poisson: number;
+  prix_kg_poisson?: number;
   prix_total: number;
   nom_complet_client?: string;
   mode_paiement: string;
 }
 
+// Type pour une espèce
+interface Espece {
+  label: string;
+  value: string;
+}
+
 const FishSalesTrackingScreen: React.FC = () => {
   const [filterBassin, setFilterBassin] = useState('');
-  const [filterTypeVente, setFilterTypeVente] = useState('');
   const [filterEspece, setFilterEspece] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
   const [filterClient, setFilterClient] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Liste statique des bassins
@@ -41,58 +51,144 @@ const FishSalesTrackingScreen: React.FC = () => {
     { label: 'Bassin Sud', value: 'Bassin Sud' },
   ];
 
-  // Options pour les filtres
-  const typesVente = [
-    { label: 'Tous les types', value: '' },
-    { label: 'Vente directe', value: 'Vente directe' },
-    { label: 'Vente en gros', value: 'Vente en gros' },
-  ];
+  // Récupérer les espèces dynamiquement
+  const { data: especesData = [], isLoading: isEspecesLoading, isError: isEspecesError } = useEspeces();
   const especes = [
     { label: 'Toutes espèces', value: '' },
-    { label: 'Tilapia', value: 'Tilapia' },
-    { label: 'Carpe', value: 'Carpe' },
-    { label: 'Silure', value: 'Silure' },
-    { label: 'Capitaine', value: 'Capitaine' },
+    ...especesData.map((espece: Espece) => ({
+      label: espece.label,
+      value: espece.value,
+    })),
   ];
+
   const periods = [
     { label: 'Toutes périodes', value: '' },
     { label: 'Dernière semaine', value: 'week' },
     { label: 'Dernier mois', value: 'month' },
   ];
-  const clients = [
-    { label: 'Tous les clients', value: '' },
-    { label: 'Marché Local', value: 'Marché Local' },
-    { label: 'Restaurant XYZ', value: 'Restaurant XYZ' },
-  ];
 
   // Utiliser le hook pour récupérer les ventes avec filtres
   const { data: sales = [], isLoading, isError } = useFishSales({
-    type_de_vente: filterTypeVente,
+    type_de_vente: 'Poisson',
     espece_poisson: filterEspece,
     bassin: filterBassin,
   });
 
-  // Log pour déboguer les données reçues
-  console.log('Ventes reçues:', sales);
+  // Hook pour supprimer une vente
+  const deleteFishSaleMutation = useDeleteFishSale();
 
-  // Filtrer localement pour période et client
-  const filteredSales = sales.filter((sale) => {
+  // Log pour déboguer les données reçues
+  console.log('Ventes poissons reçues (brut):', JSON.stringify(sales, null, 2));
+  console.log('Espèces chargées:', JSON.stringify(especesData, null, 2));
+  console.log('État de chargement:', isLoading);
+  console.log('Erreur API:', isError);
+  console.log('Filtre espèce appliqué:', filterEspece);
+
+  // Définir les clients dynamiquement
+  const clients = [
+    { label: 'Tous les clients', value: '' },
+    ...(sales && Array.isArray(sales)
+      ? [...new Set(sales.map((sale) => sale.nom_complet_client))].map((client) => ({
+          label: client || 'Non spécifié',
+          value: client || '',
+        }))
+      : []),
+  ];
+
+  // Filtrer localement pour période, client et recherche
+  const filteredSales = sales && Array.isArray(sales) ? sales.filter((sale) => {
     try {
+      const today = new Date('2025-09-26');
+      const oneWeekAgo = new Date(today);
+      oneWeekAgo.setDate(today.getDate() - 7);
+      const oneMonthAgo = new Date(today);
+      oneMonthAgo.setMonth(today.getMonth() - 1);
+
       const matchesPeriod =
         !filterPeriod ||
         (filterPeriod === 'week' &&
           sale.date &&
-          new Date(sale.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) ||
+          new Date(sale.date) >= oneWeekAgo) ||
         (filterPeriod === 'month' &&
           sale.date &&
-          new Date(sale.date) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+          new Date(sale.date) >= oneMonthAgo);
+
       const matchesClient = !filterClient || sale.nom_complet_client === filterClient;
-      return matchesPeriod && matchesClient;
+
+      // Gestion de la recherche par espèce, bassin ou client
+      const espece = sale.espece_poisson
+        ? sale.espece_poisson.toLowerCase()
+        : '';
+      const bassin =
+        sale.bassin !== null && sale.bassin !== undefined
+          ? sale.bassin.toLowerCase()
+          : '';
+      const client = sale.nom_complet_client
+        ? sale.nom_complet_client.toLowerCase()
+        : '';
+      const matchesSearch =
+        !searchQuery ||
+        espece.includes(searchQuery.toLowerCase()) ||
+        bassin.includes(searchQuery.toLowerCase()) ||
+        client.includes(searchQuery.toLowerCase());
+
+      return matchesPeriod && matchesClient && matchesSearch;
     } catch (error) {
       console.error('Erreur de filtrage:', error);
       return true;
     }
-  });
+  }) : [];
+
+  // Gérer la suppression d'une vente
+  const handleDeleteSale = (saleId: string, sale: FishSale) => {
+    const especeDisplay = sale.espece_poisson || 'Inconnu';
+    Alert.alert(
+      'Confirmer la suppression',
+      `Voulez-vous vraiment supprimer la vente pour ${sale.bassin} (${especeDisplay}) ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            deleteFishSaleMutation.mutate(saleId, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'successToast',
+                  props: {
+                    message: 'Vente supprimée avec succès',
+                  },
+                });
+              },
+              onError: () => {
+                Toast.show({
+                  type: 'errorToast',
+                  props: {
+                    message: 'Erreur lors de la suppression de la vente',
+                  },
+                });
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  // Mapper le code de l'espèce à son nom pour l'affichage
+  const getEspeceName = (espece_poisson?: string | null) => {
+    if (!espece_poisson) {
+      console.log('espece_poisson est null ou undefined:', espece_poisson);
+      return 'Non spécifiée';
+    }
+    const espece = especesData.find((e: Espece) => e.value === espece_poisson);
+    console.log(`Recherche de l'espèce "${espece_poisson}" dans especesData:`, especesData);
+    console.log('Espèce trouvée:', espece);
+    return espece ? espece.label : espece_poisson;
+  };
 
   // Rendu de chaque carte de vente
   const renderSaleItem = ({ item }: { item: FishSale }) => (
@@ -100,12 +196,20 @@ const FishSalesTrackingScreen: React.FC = () => {
       <View style={styles.cardHeader}>
         <Icon name="shopping-cart" size={28} color={COLORS.accent} />
         <Text style={styles.cardTitle}>{item.bassin}</Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteSale(item.id, item)}
+        >
+          <Icon name="delete" size={24} color={COLORS.error} />
+        </TouchableOpacity>
       </View>
       <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>
-      <Text style={styles.cardDetail}>Type de vente: {item.type_de_vente}</Text>
-      <Text style={styles.cardDetail}>Espèce: {item.espece_poisson || 'Non spécifiée'}</Text>
+      <Text style={styles.cardDetail}>Espèce: {getEspeceName(item.espece_poisson)}</Text>
       <Text style={styles.cardDetail}>Quantité: {item.kg_poisson} kg</Text>
-      <Text style={styles.cardDetail}>Prix total: {item.prix_total} XAF</Text>
+      <Text style={styles.cardDetail}>
+        Prix par kg: {item.prix_kg_poisson ? `${item.prix_kg_poisson.toFixed(2)} XAF` : 'Non défini'}
+      </Text>
+      <Text style={styles.cardDetail}>Prix total: {item.prix_total.toFixed(2)} XAF</Text>
       <Text style={styles.cardDetail}>Client: {item.nom_complet_client || 'Non spécifié'}</Text>
       <Text style={styles.cardDetail}>Mode de paiement: {item.mode_paiement}</Text>
     </Animatable.View>
@@ -114,8 +218,23 @@ const FishSalesTrackingScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* Indicateur de chargement */}
-      {isLoading && <Text style={styles.loadingText}>Chargement...</Text>}
+      {isLoading || isEspecesLoading ? (
+        <Text style={styles.loadingText}>Chargement...</Text>
+      ) : null}
       {isError && <Text style={styles.errorText}>Erreur lors du chargement des ventes</Text>}
+      {isEspecesError && <Text style={styles.errorText}>Erreur lors du chargement des espèces</Text>}
+
+      {/* Barre de recherche */}
+      <View style={styles.searchContainer}>
+        <Icon name="search" size={24} color={COLORS.textLight} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Rechercher par espèce, bassin ou client"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          accessibilityLabel="Rechercher une vente"
+        />
+      </View>
 
       {/* Filtres */}
       <View style={styles.filterContainer}>
@@ -126,29 +245,23 @@ const FishSalesTrackingScreen: React.FC = () => {
           placeholder="Filtrer par bassin"
         />
         <CustomSelect
-          options={typesVente}
-          value={filterTypeVente}
-          onChange={setFilterTypeVente}
-          placeholder="Filtrer par type de vente"
-        />
-        <CustomSelect
           options={especes}
           value={filterEspece}
           onChange={setFilterEspece}
           placeholder="Filtrer par espèce"
         />
-        {/* <CustomSelect
+        <CustomSelect
           options={periods}
           value={filterPeriod}
           onChange={setFilterPeriod}
           placeholder="Filtrer par période"
-        /> */}
-        {/* <CustomSelect
+        />
+        <CustomSelect
           options={clients}
           value={filterClient}
           onChange={setFilterClient}
           placeholder="Filtrer par client"
-        /> */}
+        />
       </View>
 
       {/* Liste des ventes */}
@@ -190,6 +303,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius,
+    margin: SIZES.margin,
+    paddingHorizontal: SIZES.padding,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    padding: SIZES.padding / 2,
+  },
   filterContainer: {
     flexDirection: 'column',
     padding: SIZES.padding,
@@ -218,6 +351,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginLeft: SIZES.margin / 2,
+    flex: 1,
   },
   cardDetail: {
     fontSize: SIZES.fontMedium,
@@ -261,6 +395,9 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textAlign: 'center',
     marginTop: SIZES.margin,
+  },
+  deleteButton: {
+    padding: 8,
   },
 });
 

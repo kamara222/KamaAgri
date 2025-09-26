@@ -80,7 +80,7 @@ interface Sale {
   nombre_poulet?: number;
   nombre_poisson?: number;
   prix_kg_poisson?: number;
-  prix_unitaire?: number;
+  prix_unitaitre?: number;
   prix_total: number;
   nom_complet_client?: string;
   mode_paiement: string;
@@ -384,63 +384,6 @@ export const createFishFeedDistribution = async (distribution: {
   }
 };
 
-// Récupérer la liste des ventes de poulets
-export const getChickenSales = async (filters?: {
-  type_de_vente?: string;
-  race_poulet?: string;
-  batiment?: string;
-}) => {
-  let endpoint = '/ventes';
-  if (filters) {
-    const queryParams = new URLSearchParams();
-    if (filters.type_de_vente) queryParams.append('type_de_vente', filters.type_de_vente);
-    if (filters.race_poulet) queryParams.append('race_poulet', filters.race_poulet);
-    if (filters.batiment) queryParams.append('batiment', filters.batiment);
-    endpoint += `?${queryParams.toString()}`;
-  }
-  try {
-    const res: AxiosResponse<Sale[]> = await api.get(endpoint);
-    return res.data.filter((sale) => sale.nombre_poulet !== undefined && sale.nombre_poulet !== null);
-  } catch (error) {
-    console.error('API error:', endpoint, error);
-    throw error;
-  }
-};
-
-// Créer une nouvelle vente de poulet
-export const createChickenSale = async (sale: {
-  date: string;
-  type_de_vente: string;
-  batiment: string;
-  race_poulet?: string;
-  nombre_poulet: number;
-  prix_unitaire: number;
-  prix_total: number;
-  nom_complet_client: string;
-  mode_paiement: string;
-}) => {
-  const endpoint = '/ventes';
-  try {
-    const res: AxiosResponse<Sale> = await api.post(endpoint, sale);
-    return res.data;
-  } catch (error) {
-    console.error('API error:', endpoint, error);
-    throw error;
-  }
-};
-
-// Supprimer une vente de poulet
-export const deleteChickenSale = async (id: string) => {
-  const endpoint = `/ventes/${id}`;
-  try {
-    const res: AxiosResponse = await api.delete(endpoint);
-    return res.data;
-  } catch (error) {
-    console.error('API error:', endpoint, error);
-    throw error;
-  }
-};
-
 // Récupérer la liste des ventes de poissons
 export const getFishSales = async (filters?: {
   type_de_vente?: string;
@@ -478,6 +421,75 @@ export const createFishSale = async (sale: {
   const endpoint = '/ventes';
   try {
     const res: AxiosResponse<Sale> = await api.post(endpoint, sale);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Récupérer la liste des ventes de poulets
+export const getChickenSales = async (filters?: {
+  type_de_vente?: string;
+  race_poulet?: string;
+  batiment?: string;
+}) => {
+  let endpoint = '/ventes';
+  if (filters) {
+    const queryParams = new URLSearchParams();
+    if (filters.type_de_vente) queryParams.append('type_de_vente', filters.type_de_vente);
+    if (filters.race_poulet) queryParams.append('race_poulet', filters.race_poulet);
+    if (filters.batiment) queryParams.append('batiment', filters.batiment);
+    endpoint += `?${queryParams.toString()}`;
+  }
+  try {
+    const res: AxiosResponse<Sale[]> = await api.get(endpoint);
+    return res.data.filter((sale) => sale.nombre_poulet !== undefined && sale.nombre_poulet !== null);
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Créer une nouvelle vente de poulet
+export const createChickenSale = async (sale: {
+  date: string;
+  type_de_vente: string;
+  batiment: string;
+  race_poulet?: string;
+  nombre_poulet: number;
+  prix_unitaitre: number;
+  prix_total: number;
+  nom_complet_client: string;
+  mode_paiement: string;
+}) => {
+  const endpoint = '/ventes';
+  try {
+    const res: AxiosResponse<Sale> = await api.post(endpoint, sale);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Supprimer une vente de poulet
+export const deleteChickenSale = async (id: string) => {
+  const endpoint = `/ventes/${id}`;
+  try {
+    const res: AxiosResponse = await api.delete(endpoint);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Hook pour supprimer une vente de poisson
+export const deleteFishSale = async (id: string) => {
+  const endpoint = `/ventes/${id}`;
+  try {
+    const res: AxiosResponse = await api.delete(endpoint);
     return res.data;
   } catch (error) {
     console.error('API error:', endpoint, error);
