@@ -20,11 +20,11 @@ import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
 interface FeedForm {
-  date?: string;
+  date: string;
   nom_alimentation: string;
   type: string;
   poids: string;
-  nombre?: string;
+  nombre: string;
 }
 
 interface AddFishFeedModalProps {
@@ -67,18 +67,16 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
   ];
 
   // Hook pour créer une distribution
-  const { mutate: createFishFeedDistribution, isLoading: isSubmitting } =
-    useCreateFishFeedDistribution();
+  const { mutate: createFishFeedDistribution, isLoading: isSubmitting } = useCreateFishFeedDistribution();
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
+    if (!form.date) newErrors.date = "Date requise";
     if (!form.nom_alimentation) newErrors.nom_alimentation = "Nom requis";
     if (!form.type) newErrors.type = "Type d’aliment requis";
-    if (!form.poids || parseFloat(form.poids) <= 0)
-      newErrors.poids = "Poids positif requis";
-    if (form.nombre && parseInt(form.nombre) < 0)
-      newErrors.nombre = "Nombre positif ou vide requis";
+    if (!form.poids || parseFloat(form.poids) <= 0) newErrors.poids = "Poids positif requis";
+    if (!form.nombre || parseInt(form.nombre) <= 0) newErrors.nombre = "Nombre positif requis";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -91,12 +89,12 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
         nom_alimentation: form.nom_alimentation,
         type: form.type,
         poids: parseFloat(form.poids),
-        nombre: form.nombre ? parseInt(form.nombre) : undefined,
+        nombre: parseInt(form.nombre),
       };
-      console.log("Données envoyées à l'API:", feedData); // Log pour déboguer
+      console.log("Données envoyées à l'API:", JSON.stringify(feedData, null, 2));
       createFishFeedDistribution(feedData, {
         onSuccess: (data) => {
-          console.log("Distribution créée avec succès:", data); // Log pour vérifier les données renvoyées
+          console.log("Distribution créée avec succès:", JSON.stringify(data, null, 2));
           Toast.show({
             type: "successToast",
             props: {
@@ -113,12 +111,8 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
             nombre: "",
           });
         },
-
         onError: (error) => {
-          console.error(
-            "Erreur lors de la création de la distribution:",
-            error
-          );
+          console.error("Erreur lors de la création de la distribution:", error);
           Toast.show({
             type: "errorToast",
             props: {
@@ -160,7 +154,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
 
             {/* Champ Date */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Date</Text>
+              <Text style={styles.label}>Date *</Text>
               <TouchableOpacity
                 style={[styles.input, errors.date && styles.inputError]}
                 onPress={() => setShowDatePicker(true)}
@@ -198,10 +192,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nom de l'alimentation *</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  errors.nom_alimentation && styles.inputError,
-                ]}
+                style={[styles.input, errors.nom_alimentation && styles.inputError]}
                 value={form.nom_alimentation}
                 onChangeText={(text) => {
                   setForm({ ...form, nom_alimentation: text });
@@ -228,6 +219,9 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
                 placeholder="Sélectionner un type"
                 error={errors.type}
               />
+              {errors.type && (
+                <Text style={styles.errorText}>{errors.type}</Text>
+              )}
             </View>
 
             {/* Champ Poids */}
@@ -251,7 +245,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
 
             {/* Champ Nombre */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nombre</Text>
+              <Text style={styles.label}>Nombre *</Text>
               <TextInput
                 style={[styles.input, errors.nombre && styles.inputError]}
                 keyboardType="number-pad"
@@ -260,7 +254,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
                   setForm({ ...form, nombre: text });
                   setErrors({ ...errors, nombre: "" });
                 }}
-                placeholder="Ex: 100 (optionnel)"
+                placeholder="Ex: 100"
                 placeholderTextColor={COLORS.textLight}
               />
               {errors.nombre && (
@@ -275,10 +269,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
               duration={2000}
             >
               <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  isSubmitting && styles.disabledButton,
-                ]}
+                style={[styles.submitButton, isSubmitting && styles.disabledButton]}
                 onPress={handleSubmit}
                 disabled={isSubmitting}
               >

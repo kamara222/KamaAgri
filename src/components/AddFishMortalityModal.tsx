@@ -15,7 +15,7 @@ import * as Animatable from "react-native-animatable";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import CustomSelect from "./CustomSelect";
-import { useCreateFishMortality, useEspeces } from "../services";
+import { useCreateFishMortality } from "../services";
 import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
@@ -60,18 +60,12 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
     { label: "Bassin Ouest", value: "Bassin Ouest" },
   ];
 
-  // Hook pour récupérer les espèces
-  const {
-    data: especesData = [],
-    isLoading: isEspecesLoading,
-    isError: isEspecesError,
-  } = useEspeces();
-  const especesOptions = [
+  // Liste statique des espèces
+  const especes = [
     { label: "Sélectionner une espèce", value: "" },
-    ...especesData.map((espece: { label: string; value: string }) => ({
-      label: espece.label,
-      value: espece.value,
-    })),
+    { label: "Tilapia", value: "tilapia" },
+    { label: "Silure", value: "silure" },
+    { label: "Carpe", value: "carpe" },
   ];
 
   // Options pour les causes (statiques)
@@ -83,8 +77,7 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
   ];
 
   // Hook pour créer une mortalité
-  const { mutate: createFishMortality, isLoading: isSubmitting } =
-    useCreateFishMortality();
+  const { mutate: createFishMortality, isLoading: isSubmitting } = useCreateFishMortality();
 
   // Validation du formulaire
   const validateForm = () => {
@@ -107,14 +100,14 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
         date: form.date,
         bassin: form.bassin,
         nombre: parseInt(form.nombre),
-        cause:
-          form.cause === "Autre" ? form.causeDetails || form.cause : form.cause,
+        cause: form.cause === "Autre" ? form.causeDetails || form.cause : form.cause,
         espece: form.espece,
       };
-      console.log("Données envoyées à l'API:", mortalityData); // Log pour déboguer
+      console.log("Données envoyées à l'API:", JSON.stringify(mortalityData, null, 2));
+      console.log("Espèce sélectionnée:", form.espece);
       createFishMortality(mortalityData, {
         onSuccess: (data) => {
-          console.log("Mortalité créée avec succès:", data);
+          console.log("Mortalité créée avec succès:", JSON.stringify(data, null, 2));
           Toast.show({
             type: "successToast",
             props: {
@@ -132,7 +125,6 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
             espece: "",
           });
         },
-
         onError: (error) => {
           console.error("Erreur lors de la création de la mortalité:", error);
           Toast.show({
@@ -142,7 +134,7 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
               description: "Erreur lors de l'ajout de la mortalité",
             },
           });
-        }
+        },
       });
     }
   };
@@ -231,26 +223,16 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
             {/* Champ Espèce */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Espèce *</Text>
-              {isEspecesLoading ? (
-                <Text style={styles.loadingText}>
-                  Chargement des espèces...
-                </Text>
-              ) : isEspecesError ? (
-                <Text style={styles.errorText}>
-                  Erreur lors du chargement des espèces
-                </Text>
-              ) : (
-                <CustomSelect
-                  options={especesOptions}
-                  value={form.espece}
-                  onChange={(value) => {
-                    setForm({ ...form, espece: value });
-                    setErrors({ ...errors, espece: "" });
-                  }}
-                  placeholder="Sélectionner une espèce"
-                  error={errors.espece}
-                />
-              )}
+              <CustomSelect
+                options={especes}
+                value={form.espece}
+                onChange={(value) => {
+                  setForm({ ...form, espece: value });
+                  setErrors({ ...errors, espece: "" });
+                }}
+                placeholder="Sélectionner une espèce"
+                error={errors.espece}
+              />
               {errors.espece && (
                 <Text style={styles.errorText}>{errors.espece}</Text>
               )}
@@ -298,10 +280,7 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Détails de la cause *</Text>
                 <TextInput
-                  style={[
-                    styles.input,
-                    errors.causeDetails && styles.inputError,
-                  ]}
+                  style={[styles.input, errors.causeDetails && styles.inputError]}
                   value={form.causeDetails}
                   onChangeText={(text) => {
                     setForm({ ...form, causeDetails: text });
@@ -324,10 +303,7 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
               duration={2000}
             >
               <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  isSubmitting && styles.disabledButton,
-                ]}
+                style={[styles.submitButton, isSubmitting && styles.disabledButton]}
                 onPress={handleSubmit}
                 disabled={isSubmitting}
               >
@@ -441,12 +417,6 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
-  },
-  loadingText: {
-    fontSize: SIZES.fontMedium,
-    fontFamily: FONTS.regular,
-    color: COLORS.text,
-    textAlign: "center",
   },
 });
 

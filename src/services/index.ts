@@ -12,16 +12,20 @@ import {
   deleteFeedDistribution,
   getBassins,
   createBassin,
+  deleteBassin,
   getEspeces,
   getFishMortalities,
   createFishMortality,
+  deleteFishMortality,
   getFishFeedDistributions,
   createFishFeedDistribution,
+  deleteFishFeedDistribution,
   getFishSales,
   createFishSale,
   getChickenSales,
   createChickenSale,
   deleteChickenSale,
+  deleteFishSale,
   getRaces,
   login,
   logout,
@@ -143,6 +147,17 @@ export const useDeleteFeedDistribution = () => {
   });
 };
 
+// Hook pour supprimer une distribution d'aliment pour poissons
+export const useDeleteFishFeedDistribution = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteFishFeedDistribution,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fishFeedDistributions'] });
+    },
+  });
+};
+
 // Hook pour récupérer les bassins
 export const useBassins = (especeFilter?: string) => {
   return useQuery({
@@ -156,6 +171,17 @@ export const useCreateBassin = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createBassin,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bassins'] });
+    },
+  });
+};
+
+// Hook pour supprimer un bassin
+export const useDeleteBassin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteBassin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bassins'] });
     },
@@ -193,6 +219,17 @@ export const useCreateFishMortality = () => {
     mutationFn: createFishMortality,
     onSuccess: () => {
       console.log('Invalidation des queries fishMortalities');
+      queryClient.invalidateQueries({ queryKey: ['fishMortalities'] });
+    },
+  });
+};
+
+// Hook pour supprimer une mortalité de poisson
+export const useDeleteFishMortality = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteFishMortality,
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fishMortalities'] });
     },
   });
@@ -240,6 +277,17 @@ export const useCreateFishSale = () => {
   });
 };
 
+// Hook pour supprimer une vente de poisson
+export const useDeleteFishSale = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteFishSale,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fishSales'] });
+    },
+  });
+};
+
 // Hook pour récupérer les ventes de poulets
 export const useChickenSales = (filters?: {
   type_de_vente?: string;
@@ -274,18 +322,6 @@ export const useDeleteChickenSale = () => {
   });
 };
 
-//Hook pour supprimer une vente de poisson
-
-export const useDeleteFishSale = () => {
-    const queryClient = useQueryClient();
-    return useMutation ({
-        mutationFn: deleteChickenSale,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['fishSales'] });
-        },
-    })
-}
-
 // Hook pour l'authentification
 export const useLogin = () => {
   return useMutation({
@@ -313,16 +349,3 @@ export const useLogout = () => {
     },
   });
 };
-
-// // Hook pour supprimer une vente de poisson
-
-// export const deleteFishSale = async (id: string) => {
-//   const endpoint = `/ventes/${id}`;
-//   try {
-//     const res: AxiosResponse = await api.delete(endpoint);
-//     return res.data;
-//   } catch (error) {
-//     console.error('API error:', endpoint, error);
-//     throw error;
-//   }
-// };

@@ -5,13 +5,15 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddFishMortalityModal from '../components/AddFishMortalityModal';
-import { useFishMortalities } from '../services'; // Importer le hook
+import { useFishMortalities, useDeleteFishMortality } from '../services';
+import Toast from 'react-native-toast-message';
 
 // Types pour une mortalité
 interface FishMortality {
@@ -20,17 +22,31 @@ interface FishMortality {
   bassin: string;
   nombre?: number;
   cause: string;
-  espece: string;
+  espece: string | { code: string; nom: string } | null;
+}
+
+// Type pour une espèce
+interface Espece {
+  label: string;
+  value: string;
 }
 
 const FishMortalityScreen: React.FC = () => {
   const [filterBassin, setFilterBassin] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
   const [filterCause, setFilterCause] = useState('');
-  const [filterEspece, setFilterEspece] = useState(''); // Nouveau filtre pour espèce
+  const [filterEspece, setFilterEspece] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Options pour les filtres (statiques, à adapter si API pour bassins/especes)
+  // Liste statique des espèces pour la correspondance
+  const especes: Espece[] = [
+    { label: 'Toutes espèces', value: '' },
+    { label: 'Tilapia', value: 'tilapia' },
+    { label: 'Silure', value: 'silure' },
+    { label: 'Carpe', value: 'carpe' },
+  ];
+
+  // Options pour les filtres
   const bassins = [
     { label: 'Tous les bassins', value: '' },
     { label: 'Bassin Nord', value: 'Bassin Nord' },
@@ -49,19 +65,75 @@ const FishMortalityScreen: React.FC = () => {
     { label: 'Qualité eau', value: 'Qualité eau' },
     { label: 'Autre', value: 'Autre' },
   ];
-  const especes = [
-    { label: 'Toutes espèces', value: '' },
-    { label: 'Tilapia', value: 'Tilapia' },
-    { label: 'Carpe', value: 'Carpe' },
-    { label: 'Silure', value: 'Silure' },
-    { label: 'Capitaine', value: 'Capitaine' },
-  ];
 
   // Utiliser le hook pour récupérer les mortalités avec filtre par espèce
   const { data: mortalities = [], isLoading, isError } = useFishMortalities(filterEspece);
 
+  // Hook pour supprimer une mortalité
+  const deleteFishMortalityMutation = useDeleteFishMortality();
+
   // Log pour déboguer les données reçues
-  console.log('Mortalités reçues:', mortalities);
+  console.log('Mortalités reçues (brut):', JSON.stringify(mortalities, null, 2));
+  console.log('État de chargement:', isLoading);
+  console.log('Erreur API:', isError);
+  console.log('Filtre espèce:', filterEspece);
+
+  // Mapper le code de l'espèce à son nom pour l'affichage
+  const getEspeceName = (espece?: string | { code: string; nom: string } | null) => {
+    if (!espece) {
+      console.log('espece est null ou undefined:', espece);
+      return 'Non spécifiée';
+    }
+    if (typeof espece === 'string') {
+      const especeFound = especes.find((e: Espece) => e.value === espece.toLowerCase());
+      console.log(`Recherche de l'espèce "${espece}" dans especes:`, especes);
+      console.log('Espèce trouvée:', especeFound);
+      return especeFound ? especeFound.label : espece;
+    }
+    console.log(`Recherche de l'espèce (objet) "${espece.code}" dans especes:`, especes);
+    const especeFound = especes.find((e: Espece) => e.value === espece.code.toLowerCase());
+    console.log('Espèce trouvée:', especeFound);
+    return especeFound ? especeFound.label : espece.nom || 'Non spécifiée';
+  };
+
+  // Gérer la suppression d'une mortalité
+  const handleDeleteMortality = (mortalityId: string, mortality: FishMortality) => {
+    const especeDisplay = getEspeceName(mortality.espece);
+    Alert.alert(
+      'Confirmer la suppression',
+      `Voulez-vous vraiment supprimer la mortalité pour ${mortality.bassin} (${especeDisplay}) ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            deleteFishMortalityMutation.mutate(mortalityId, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'successToast',
+                  props: {
+                    message: 'Mortalité supprimée avec succès',
+                  },
+                });
+              },
+              onError: () => {
+                Toast.show({
+                  type: 'errorToast',
+                  props: {
+                    message: 'Erreur lors de la suppression de la mortalité',
+                  },
+                });
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
 
   // Filtrer localement pour bassin, période et cause
   const filteredMortalities = mortalities.filter((mortality) => {
@@ -78,7 +150,7 @@ const FishMortalityScreen: React.FC = () => {
       const matchesCause = !filterCause || mortality.cause === filterCause;
       return matchesBassin && matchesPeriod && matchesCause;
     } catch (error) {
-      console.error('Erreur de filtrage:', error);
+      console.error('Erreur de filtrage pour mortalité:', mortality, error);
       return true;
     }
   });
@@ -89,11 +161,17 @@ const FishMortalityScreen: React.FC = () => {
       <View style={styles.cardHeader}>
         <Icon name="warning" size={28} color={COLORS.accent} />
         <Text style={styles.cardTitle}>{item.bassin}</Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteMortality(item.id, item)}
+        >
+          <Icon name="delete" size={24} color={COLORS.error} />
+        </TouchableOpacity>
       </View>
       {item.date && <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>}
       <Text style={styles.cardDetail}>Nombre de morts: {item.nombre || 0}</Text>
       <Text style={styles.cardDetail}>Cause: {item.cause}</Text>
-      <Text style={styles.cardDetail}>Espèce: {item.espece || 'Non spécifiée'}</Text>
+      <Text style={styles.cardDetail}>Espèce: {getEspeceName(item.espece)}</Text>
     </Animatable.View>
   );
 
@@ -157,7 +235,7 @@ const FishMortalityScreen: React.FC = () => {
         isVisible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onSubmit={(mortality) => {
-          console.log('Nouvelle mortalité soumise:', mortality);
+          console.log('Nouvelle mortalité soumise:', JSON.stringify(mortality, null, 2));
           setIsModalVisible(false);
         }}
       />
@@ -198,6 +276,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginLeft: SIZES.margin / 2,
+    flex: 1,
   },
   cardDetail: {
     fontSize: SIZES.fontMedium,
@@ -241,6 +320,9 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textAlign: 'center',
     marginTop: SIZES.margin,
+  },
+  deleteButton: {
+    padding: 8,
   },
 });
 

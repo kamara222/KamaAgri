@@ -15,7 +15,7 @@ import * as Animatable from "react-native-animatable";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import CustomSelect from "./CustomSelect";
-import { useEspeces, useCreateBassin } from "../services";
+import { useCreateBassin } from "../services";
 import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
@@ -56,18 +56,12 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
     { label: "Bassin Ouest", value: "Bassin Ouest" },
   ];
 
-  // Hook pour récupérer les espèces
-  const {
-    data: especesData = [],
-    isLoading: isEspecesLoading,
-    isError: isEspecesError,
-  } = useEspeces();
+  // Liste statique des espèces
   const especes = [
     { label: "Sélectionner une espèce", value: "" },
-    ...especesData.map((espece: { label: string; value: string }) => ({
-      label: espece.label,
-      value: espece.value,
-    })),
+    { label: "Tilapia", value: "tilapia" },
+    { label: "Silure", value: "silure" },
+    { label: "Carpe", value: "carpe" },
   ];
 
   // Hook pour créer un bassin
@@ -94,10 +88,11 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
         date: form.date,
         nombre: parseInt(form.nombre),
       };
-      console.log("Données envoyées à l'API:", basinData); // Log pour déboguer
+      console.log("Données envoyées à l'API:", JSON.stringify(basinData, null, 2));
+      console.log("Espèce sélectionnée:", form.espece);
       createBassin(basinData, {
         onSuccess: (data) => {
-          console.log("Bassin créé avec succès:", data);
+          console.log("Bassin créé avec succès:", JSON.stringify(data, null, 2));
           Toast.show({
             type: "successToast",
             props: {
@@ -107,9 +102,8 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
           onSubmit(form);
           setForm({ nom_bassin: "", espece: "", date: "", nombre: "" });
         },
-
         onError: (error) => {
-          console.log("Erreur lors de la création du bassin:", error);
+          console.error("Erreur lors de la création du bassin:", error);
           Toast.show({
             type: "errorToast",
             props: {
@@ -169,25 +163,18 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
             {/* Champ Espèce */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Espèce *</Text>
-              {isEspecesLoading ? (
-                <Text style={styles.loadingText}>
-                  Chargement des espèces...
-                </Text>
-              ) : isEspecesError ? (
-                <Text style={styles.errorText}>
-                  Erreur lors du chargement des espèces
-                </Text>
-              ) : (
-                <CustomSelect
-                  options={especes}
-                  value={form.espece}
-                  onChange={(value) => {
-                    setForm({ ...form, espece: value });
-                    setErrors({ ...errors, espece: "" });
-                  }}
-                  placeholder="Sélectionner une espèce"
-                  error={errors.espece}
-                />
+              <CustomSelect
+                options={especes}
+                value={form.espece}
+                onChange={(value) => {
+                  setForm({ ...form, espece: value });
+                  setErrors({ ...errors, espece: "" });
+                }}
+                placeholder="Sélectionner une espèce"
+                error={errors.espece}
+              />
+              {errors.espece && (
+                <Text style={styles.errorText}>{errors.espece}</Text>
               )}
             </View>
 
@@ -367,12 +354,6 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontLarge,
     fontFamily: FONTS.bold,
     color: COLORS.white,
-  },
-  loadingText: {
-    fontSize: SIZES.fontMedium,
-    fontFamily: FONTS.regular,
-    color: COLORS.text,
-    textAlign: "center",
   },
   disabledButton: {
     opacity: 0.6,

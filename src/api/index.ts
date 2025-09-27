@@ -36,7 +36,7 @@ interface FeedDistribution {
 interface Basin {
   id: string;
   nom_bassin: string;
-  espece: string;
+  espece: string | { code: string; nom: string } | null;
   date?: string;
   nombre?: number;
 }
@@ -54,7 +54,7 @@ interface FishMortality {
   bassin: string;
   nombre?: number;
   cause: string;
-  espece: string;
+  espece: string | { code: string; nom: string } | null;
 }
 
 // Interface pour une distribution d'aliment de poisson
@@ -146,13 +146,24 @@ export const createBassin = async (bassin: {
   }
 };
 
+// Supprimer un bassin
+export const deleteBassin = async (id: string) => {
+  const endpoint = `/poisson/${id}`;
+  try {
+    const res: AxiosResponse = await api.delete(endpoint);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
 // Récupérer la liste des espèces
 export const getEspeces = async () => {
   const staticEspeces: Espece[] = [
-    { label: 'Tilapia', value: 'Tilapia' },
-    { label: 'Carpe', value: 'Carpe' },
-    { label: 'Silure', value: 'Silure' },
-    { label: 'Capitaine', value: 'Capitaine' },
+    { label: 'Tilapia', value: 'tilapia' },
+    { label: 'Silure', value: 'silure' },
+    { label: 'Carpe', value: 'carpe' },
   ];
   return staticEspeces;
 };
@@ -320,6 +331,18 @@ export const deleteFeedDistribution = async (id: string) => {
   }
 };
 
+// Supprimer une distribution d'aliment pour poissons
+export const deleteFishFeedDistribution = async (id: string) => {
+  const endpoint = `/alimentation-poisson/${id}`;
+  try {
+    const res: AxiosResponse = await api.delete(endpoint);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
 // Récupérer la liste des mortalités de poissons
 export const getFishMortalities = async (especeFilter?: string) => {
   const endpoint = especeFilter
@@ -345,6 +368,18 @@ export const createFishMortality = async (mortality: {
   const endpoint = '/mortalite-poisson';
   try {
     const res: AxiosResponse<FishMortality> = await api.post(endpoint, mortality);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Supprimer une mortalité de poisson
+export const deleteFishMortality = async (id: string) => {
+  const endpoint = `/mortalite-poisson/${id}`;
+  try {
+    const res: AxiosResponse = await api.delete(endpoint);
     return res.data;
   } catch (error) {
     console.error('API error:', endpoint, error);
@@ -485,7 +520,7 @@ export const deleteChickenSale = async (id: string) => {
   }
 };
 
-// Hook pour supprimer une vente de poisson
+// Supprimer une vente de poisson
 export const deleteFishSale = async (id: string) => {
   const endpoint = `/ventes/${id}`;
   try {

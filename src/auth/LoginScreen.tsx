@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,18 +11,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Toast from 'react-native-toast-message';
-import { useLogin } from '../services';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
+import { useLogin } from "../services";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 const LoginScreen = ({ navigation }) => {
-  const [identifiant, setIdentifiant] = useState('');
-  const [password, setPassword] = useState('');
+  const [identifiant, setIdentifiant] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,9 +56,10 @@ const LoginScreen = ({ navigation }) => {
   const handleLogin = async () => {
     if (!identifiant || !password) {
       Toast.show({
-        type: 'error',
-        text1: 'Erreur',
-        text2: 'Veuillez remplir tous les champs',
+        type: "errorToast",
+        props: {
+          message: "Veuillez remplir tous les champs",
+        },
       });
       return;
     }
@@ -69,10 +70,10 @@ const LoginScreen = ({ navigation }) => {
         { identifiant, password },
         {
           onSuccess: async (data) => {
-            console.log('Réponse de l\'API:', data);
+            console.log("Réponse de l'API:", data);
             if (data.accessToken) {
-              await AsyncStorage.setItem('authToken', data.accessToken);
-              console.log('Token stocké:', data.accessToken);
+              await AsyncStorage.setItem("authToken", data.accessToken);
+              console.log("Token stocké:", data.accessToken);
             }
             if (data.user) {
               const userInfo = {
@@ -82,35 +83,42 @@ const LoginScreen = ({ navigation }) => {
                 numeroTelephone: data.user.numeroTelephone,
                 role: data.user.role,
               };
-              await AsyncStorage.setItem('userInfo', JSON.stringify(userInfo));
-              console.log('Informations utilisateur stockées:', userInfo);
+              await AsyncStorage.setItem("userInfo", JSON.stringify(userInfo));
+              console.log("Informations utilisateur stockées:", userInfo);
             }
+
             Toast.show({
-              type: 'success',
-              text1: 'Succès',
-              text2: data.message || 'Connexion réussie !',
+              type: "successToast",
+              props: {
+                message: data.message || "Connexion réussie !",
+              },
             });
             setIsSubmitting(false);
-            navigation.replace('Home');
+            navigation.replace("Home");
           },
           onError: (error: any) => {
             setIsSubmitting(false);
-            console.error('Erreur de connexion:', error.response?.data);
+            console.error("Erreur de connexion:", error.response?.data);
+
             Toast.show({
-              type: 'error',
-              text1: 'Erreur',
-              text2: error.response?.data?.message || 'Échec de la connexion',
+              type: "errorToast",
+              props: {
+                message:
+                  error.response?.data?.message || "Échec de la connexion",
+              },
             });
           },
         }
       );
     } catch (error) {
       setIsSubmitting(false);
-      console.error('Erreur lors de la gestion de la connexion:', error);
+      console.error("Erreur lors de la gestion de la connexion:", error);
+
       Toast.show({
-        type: 'error',
-        text1: 'Erreur',
-        text2: 'Une erreur inattendue est survenue',
+        type: "errorToast",
+        props: {
+          message: "Une erreur inattendue est survenue",
+        },
       });
     }
   };
@@ -132,16 +140,16 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#00c45cff', '#709887ff', '#00c45cff']}
+      colors={["#00c45cff", "#709887ff", "#00c45cff"]}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       <StatusBar barStyle="light-content" backgroundColor="#00c45cff" />
-      
-      <KeyboardAvoidingView 
+
+      <KeyboardAvoidingView
         style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
@@ -152,10 +160,7 @@ const LoginScreen = ({ navigation }) => {
               styles.content,
               {
                 opacity: fadeAnim,
-                transform: [
-                  { translateY: slideAnim },
-                  { scale: scaleAnim }
-                ],
+                transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
               },
             ]}
           >
@@ -163,7 +168,12 @@ const LoginScreen = ({ navigation }) => {
             <View style={styles.header}>
               <View style={styles.logoContainer}>
                 <Ionicons name="water" size={48} color="#fff" />
-                <Ionicons name="leaf" size={36} color="#fff" style={styles.leafIcon} />
+                <Ionicons
+                  name="leaf"
+                  size={36}
+                  color="#fff"
+                  style={styles.leafIcon}
+                />
               </View>
               <Text style={styles.welcomeText}>Bienvenue</Text>
               <Text style={styles.appName}>AquaFerme Pro</Text>
@@ -172,7 +182,12 @@ const LoginScreen = ({ navigation }) => {
             {/* Formulaire de connexion */}
             <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={24} color="#555" style={styles.inputIcon} />
+                <Ionicons
+                  name="person-outline"
+                  size={24}
+                  color="#555"
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
                   placeholder="Identifiant"
@@ -185,7 +200,12 @@ const LoginScreen = ({ navigation }) => {
               </View>
 
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={24} color="#555" style={styles.inputIcon} />
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={24}
+                  color="#555"
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
                   placeholder="Mot de passe"
@@ -208,7 +228,10 @@ const LoginScreen = ({ navigation }) => {
               </View>
 
               <TouchableOpacity
-                style={[styles.loginButton, isSubmitting && styles.disabledButton]}
+                style={[
+                  styles.loginButton,
+                  isSubmitting && styles.disabledButton,
+                ]}
                 onPress={() => {
                   animateButton();
                   handleLogin();
@@ -217,13 +240,13 @@ const LoginScreen = ({ navigation }) => {
                 disabled={isSubmitting}
               >
                 <LinearGradient
-                  colors={['#65cf96ff', '#00c45cff']}
+                  colors={["#65cf96ff", "#00c45cff"]}
                   style={styles.buttonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
                   <Text style={styles.loginButtonText}>
-                    {isSubmitting ? 'Connexion...' : 'Se connecter'}
+                    {isSubmitting ? "Connexion..." : "Se connecter"}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -251,7 +274,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingVertical: 20,
   },
   content: {
@@ -259,53 +282,53 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
   logoContainer: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 15,
-    position: 'relative',
-    shadowColor: '#000',
+    position: "relative",
+    shadowColor: "#000",
   },
   leafIcon: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
   },
   welcomeText: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
     marginBottom: 8,
     letterSpacing: 0.5,
   },
   appName: {
     fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '400',
+    color: "rgba(255, 255, 255, 0.85)",
+    fontWeight: "400",
   },
   formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 25,
     padding: 25,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderRadius: 12,
     marginBottom: 20,
     paddingHorizontal: 12,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -317,7 +340,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 55,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     paddingVertical: 10,
   },
   eyeIcon: {
@@ -327,7 +350,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 20,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -335,19 +358,19 @@ const styles = StyleSheet.create({
   buttonGradient: {
     paddingVertical: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   loginButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 0.5,
   },
   disabledButton: {
     opacity: 0.6,
   },
   backgroundDecoration: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -355,9 +378,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   circle: {
-    position: 'absolute',
+    position: "absolute",
     borderRadius: 1000,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   circle1: {
     width: 220,

@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,29 +8,59 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
-} from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
-import * as Animatable from 'react-native-animatable';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
-import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Toast from 'react-native-toast-message';
-import { useLogout } from '../services';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/Navigation';
+} from "react-native";
+import { LineChart } from "react-native-chart-kit";
+import * as Animatable from "react-native-animatable";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
+import { useLogout, useLots, useBassins } from "../services";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../navigation/Navigation";
 
-// Données mock pour les cartes et graphiques (à remplacer par données du backend)
-const summaryData = [
-  { title: 'Total Poulets', value: '12,450', unit: 'têtes', icon: 'egg' },
-  { title: 'Total Poissons', value: '8,200', unit: 'têtes', icon: 'waves' },
-  { title: 'Stocks Critiques', value: '3', unit: 'articles', icon: 'warning' },
-  { title: 'Ventes Mois', value: '150,000', unit: 'XAF', icon: 'shopping-cart' },
+// Interface pour les informations utilisateur
+interface UserInfo {
+  prenom: string;
+  nom: string;
+}
+
+// Interface pour un lot
+interface Lot {
+  id: string;
+  batiment: string | null;
+  race: string | { code: string; nom: string } | null;
+  date: string;
+  nombre: number;
+  poids_moyen: number;
+}
+
+// Interface pour un bassin
+interface Basin {
+  id: string;
+  nom_bassin: string;
+  espece: string | { code: string; nom: string } | null;
+  date?: string;
+  nombre?: number;
+}
+
+// Données mock pour les cartes (sauf Total Poulets et Total Poissons, qui seront dynamiques)
+const summaryDataTemplate = [
+  { title: "Total Poulets", value: "0", unit: "têtes", icon: "egg" },
+  { title: "Total Poissons", value: "0", unit: "têtes", icon: "waves" },
+  { title: "Stocks Critiques", value: "3", unit: "articles", icon: "warning" },
+  {
+    title: "Ventes Mois",
+    value: "150,000",
+    unit: "XAF",
+    icon: "shopping-cart",
+  },
 ];
 
 // Données mock pour le graphique des ventes (7 jours)
 const salesChartData = {
-  labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+  labels: ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
   datasets: [
     {
       data: [50000, 75000, 60000, 90000, 120000, 80000, 95000],
@@ -40,36 +70,84 @@ const salesChartData = {
   ],
 };
 
-// Interface pour les informations utilisateur
-interface UserInfo {
-  prenom: string;
-  nom: string;
-}
-
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { mutate: logout } = useLogout();
-  const [userInitials, setUserInitials] = useState<string>('');
+  const [userInitials, setUserInitials] = useState<string>("");
+  const {
+    data: lots,
+    isLoading: isLotsLoading,
+    isError: isLotsError,
+  } = useLots();
+  const {
+    data: basins,
+    isLoading: isBasinsLoading,
+    isError: isBasinsError,
+  } = useBassins();
+
+  // Calculer le total des poulets
+  const totalChickens = lots
+    ? lots.reduce((sum, lot) => sum + (lot.nombre || 0), 0)
+    : 0;
+
+  // Calculer le total des poissons
+  const totalFish = basins
+    ? basins.reduce((sum, basin) => sum + (basin.nombre || 0), 0)
+    : 0;
+
+  // Formatter les nombres avec des séparateurs de milliers
+  const formattedTotalChickens = totalChickens.toLocaleString("fr-FR");
+  const formattedTotalFish = totalFish.toLocaleString("fr-FR");
+
+  // Mettre à jour les données de la carte avec les totaux dynamiques
+  const summaryData = summaryDataTemplate.map((item) => {
+    if (item.title === "Total Poulets") {
+      return {
+        ...item,
+        value: isLotsLoading
+          ? "Chargement..."
+          : isLotsError
+          ? "Erreur"
+          : formattedTotalChickens,
+      };
+    }
+    if (item.title === "Total Poissons") {
+      return {
+        ...item,
+        value: isBasinsLoading
+          ? "Chargement..."
+          : isBasinsError
+          ? "Erreur"
+          : formattedTotalFish,
+      };
+    }
+    return item;
+  });
 
   // Récupérer les informations utilisateur depuis AsyncStorage
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const userData = await AsyncStorage.getItem('userInfo');
-        console.log('Données AsyncStorage userInfo:', userData);
+        const userData = await AsyncStorage.getItem("userInfo");
+        console.log("Données AsyncStorage userInfo:", userData);
         if (userData) {
           const user: UserInfo = JSON.parse(userData);
-          console.log('Utilisateur parsé:', user);
-          const initials = `${user.prenom.charAt(0)}${user.nom.charAt(0)}`.toUpperCase();
+          console.log("Utilisateur parsé:", user);
+          const initials = `${user.prenom.charAt(0)}${user.nom.charAt(
+            0
+          )}`.toUpperCase();
           setUserInitials(initials);
-          console.log('Initiales calculées:', initials);
+          console.log("Initiales calculées:", initials);
         } else {
-          console.warn('Aucune donnée userInfo trouvée dans AsyncStorage');
+          console.warn("Aucune donnée userInfo trouvée dans AsyncStorage");
         }
       } catch (error) {
-        console.error('Erreur lors de la récupération des infos utilisateur:', error);
+        console.error(
+          "Erreur lors de la récupération des infos utilisateur:",
+          error
+        );
       }
     };
     fetchUserInfo();
@@ -78,35 +156,40 @@ const HomeScreen: React.FC = () => {
   // Gérer la déconnexion avec modale de confirmation
   const handleLogout = () => {
     Alert.alert(
-      'Confirmation',
-      'Voulez-vous vous déconnecter ?',
+      "Confirmation",
+      "Voulez-vous vous déconnecter ?",
       [
         {
-          text: 'Non',
-          style: 'cancel',
+          text: "Non",
+          style: "cancel",
         },
         {
-          text: 'Oui',
-          style: 'destructive',
+          text: "Oui",
+          style: "destructive",
           onPress: () => {
             logout(
               {},
               {
                 onSuccess: () => {
                   Toast.show({
-                    type: 'success',
-                    text1: 'Succès',
-                    text2: 'Déconnexion réussie',
+                    type: "successToast",
+                    props: {
+                      title: "Succès",
+                      message: " Déconnexion réussie",
+                    },
                   });
-                  navigation.replace('LoginScreen');
+                  navigation.replace("LoginScreen");
                 },
+
                 onError: (error: any) => {
                   Toast.show({
-                    type: 'error',
-                    text1: 'Erreur',
-                    text2: 'Échec de la déconnexion',
+                    type: "errorToast",
+                    props: {
+                      title: "Erreur",
+                      message: "Échec de la déconnexion",
+                    },
                   });
-                  console.error('Erreur de déconnexion:', error);
+                  console.error("Erreur de déconnexion:", error);
                 },
               }
             );
@@ -119,8 +202,7 @@ const HomeScreen: React.FC = () => {
 
   // Vérification des données
   const isDataValid =
-    summaryData.length > 0 &&
-    salesChartData.labels.length > 0;
+    summaryData.length > 0 && salesChartData.labels.length > 0;
 
   // Configuration de l'en-tête
   React.useLayoutEffect(() => {
@@ -128,11 +210,11 @@ const HomeScreen: React.FC = () => {
       headerLeft: () => (
         <TouchableOpacity
           style={styles.headerInitialsContainer}
-          onPress={() => navigation.navigate('ProfileScreen')}
+          onPress={() => navigation.navigate("ProfileScreen")}
           accessibilityLabel="Voir le profil"
           accessibilityHint="Navigue vers la page de profil"
         >
-          <Text style={styles.headerInitials}>{userInitials || '??'}</Text>
+          <Text style={styles.headerInitials}>{userInitials || "??"}</Text>
         </TouchableOpacity>
       ),
       headerRight: () => (
@@ -166,14 +248,14 @@ const HomeScreen: React.FC = () => {
                   <TouchableOpacity
                     style={styles.cardContent}
                     onPress={() => {
-                      if (item.title === 'Stocks Critiques') {
-                        navigation.navigate('StockManagement');
-                      } else if (item.title === 'Total Poulets') {
-                        navigation.navigate('ChickenManagement');
-                      } else if (item.title === 'Total Poissons') {
-                        navigation.navigate('FishManagement');
-                      } else if (item.title === 'Ventes Mois') {
-                        navigation.navigate('SalesTrackingGeneral');
+                      if (item.title === "Stocks Critiques") {
+                        navigation.navigate("StockManagement");
+                      } else if (item.title === "Total Poulets") {
+                        navigation.navigate("ChickenManagement");
+                      } else if (item.title === "Total Poissons") {
+                        navigation.navigate("FishManagement");
+                      } else if (item.title === "Ventes Mois") {
+                        navigation.navigate("SalesTrackingGeneral");
                       }
                     }}
                     accessibilityLabel={`Voir détails ${item.title}`}
@@ -193,7 +275,9 @@ const HomeScreen: React.FC = () => {
               ))}
             </View>
           ) : (
-            <Text style={styles.errorText}>Erreur : Données non disponibles</Text>
+            <Text style={styles.errorText}>
+              Erreur : Données non disponibles
+            </Text>
           )}
         </View>
 
@@ -204,7 +288,7 @@ const HomeScreen: React.FC = () => {
             <Animatable.View animation="bounceIn" duration={1000}>
               <LineChart
                 data={salesChartData}
-                width={Dimensions.get('window').width - SIZES.padding * 2}
+                width={Dimensions.get("window").width - SIZES.padding * 2}
                 height={220}
                 chartConfig={{
                   backgroundColor: COLORS.white,
@@ -217,8 +301,8 @@ const HomeScreen: React.FC = () => {
                     borderRadius: SIZES.radius,
                   },
                   propsForDots: {
-                    r: '6',
-                    strokeWidth: '2',
+                    r: "6",
+                    strokeWidth: "2",
                     stroke: COLORS.accent,
                   },
                 }}
@@ -227,7 +311,9 @@ const HomeScreen: React.FC = () => {
               />
             </Animatable.View>
           ) : (
-            <Text style={styles.errorText}>Erreur : Données du graphique non disponibles</Text>
+            <Text style={styles.errorText}>
+              Erreur : Données du graphique non disponibles
+            </Text>
           )}
         </View>
 
@@ -237,74 +323,74 @@ const HomeScreen: React.FC = () => {
           <View style={styles.navButtonsContainer}>
             {[
               {
-                name: 'Poulets',
-                icon: 'egg',
-                screen: 'ChickenManagement',
-                hint: 'Navigue vers la gestion des poulets',
-                code: 'poulets',
+                name: "Poulets",
+                icon: "egg",
+                screen: "ChickenManagement",
+                hint: "Navigue vers la gestion des poulets",
+                code: "poulets",
               },
               {
-                name: 'Poissons',
-                icon: 'waves',
-                screen: 'FishManagement',
-                hint: 'Navigue vers la gestion des poissons',
-                code: 'poissons',
+                name: "Poissons",
+                icon: "waves",
+                screen: "FishManagement",
+                hint: "Navigue vers la gestion des poissons",
+                code: "poissons",
               },
               {
-                name: 'Stocks',
-                icon: 'inventory',
-                screen: 'StockManagement',
-                hint: 'Navigue vers la gestion des stocks',
-                code: 'stocks',
+                name: "Stocks",
+                icon: "inventory",
+                screen: "StockManagement",
+                hint: "Navigue vers la gestion des stocks",
+                code: "stocks",
               },
               {
-                name: 'Rapports',
-                icon: 'assessment',
-                screen: 'Reports',
-                hint: 'Navigue vers les rapports',
-                code: 'rapports',
+                name: "Rapports",
+                icon: "assessment",
+                screen: "Reports",
+                hint: "Navigue vers les rapports",
+                code: "rapports",
               },
               {
-                name: 'Ventes',
-                icon: 'shopping-cart',
-                screen: 'SalesTrackingGeneral',
-                hint: 'Navigue vers le suivi des ventes',
-                code: 'ventes',
+                name: "Ventes",
+                icon: "shopping-cart",
+                screen: "SalesTrackingGeneral",
+                hint: "Navigue vers le suivi des ventes",
+                code: "ventes",
               },
               {
-                name: 'Paramètres',
-                icon: 'settings',
-                screen: 'Settings',
-                hint: 'Navigue vers les paramètres',
-                code: 'parametres',
+                name: "Paramètres",
+                icon: "settings",
+                screen: "Settings",
+                hint: "Navigue vers les paramètres",
+                code: "parametres",
               },
               {
-                name: 'Sauvegarde',
-                icon: 'archive',
-                screen: 'Backup',
-                hint: 'Navigue vers la gestion des sauvegardes',
-                code: 'sauvegarde',
+                name: "Sauvegarde",
+                icon: "archive",
+                screen: "Backup",
+                hint: "Navigue vers la gestion des sauvegardes",
+                code: "sauvegarde",
               },
               {
-                name: 'Tableau Avancé',
-                icon: 'dashboard',
-                screen: 'AdvancedDashboard',
-                hint: 'Navigue vers le tableau de bord avancé',
-                code: 'tableau_de_bord',
+                name: "Tableau Avancé",
+                icon: "dashboard",
+                screen: "AdvancedDashboard",
+                hint: "Navigue vers le tableau de bord avancé",
+                code: "tableau_de_bord",
               },
               {
-                name: 'Planificateur',
-                icon: 'event',
-                screen: 'Planner',
-                hint: 'Navigue vers le planificateur d’événements',
-                code: 'planificateur',
+                name: "Planificateur",
+                icon: "event",
+                screen: "Planner",
+                hint: "Navigue vers le planificateur d’événements",
+                code: "planificateur",
               },
               {
-                name: 'Galerie',
-                icon: 'photo-camera',
-                screen: 'PhotoGallery',
-                hint: 'Navigue vers la galerie photo',
-                code: 'galerie',
+                name: "Galerie",
+                icon: "photo-camera",
+                screen: "PhotoGallery",
+                hint: "Navigue vers la galerie photo",
+                code: "galerie",
               },
             ].map((button, index) => (
               <Animatable.View
@@ -347,12 +433,12 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.margin,
   },
   cardsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   card: {
-    width: (Dimensions.get('window').width - SIZES.padding * 3) / 2,
+    width: (Dimensions.get("window").width - SIZES.padding * 3) / 2,
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
     marginBottom: SIZES.margin,
@@ -404,16 +490,16 @@ const styles = StyleSheet.create({
     padding: SIZES.padding,
   },
   navButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   navButton: {
-    width: (Dimensions.get('window').width - SIZES.padding * 3) / 2,
+    width: (Dimensions.get("window").width - SIZES.padding * 3) / 2,
     backgroundColor: COLORS.primary,
     borderRadius: SIZES.radius,
     padding: SIZES.padding * 1.5,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: SIZES.margin,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
@@ -426,13 +512,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.white,
     marginTop: SIZES.margin / 2,
-    textAlign: 'center',
+    textAlign: "center",
   },
   errorText: {
     fontSize: SIZES.fontMedium,
     fontFamily: FONTS.regular,
     color: COLORS.error,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: SIZES.margin,
   },
   headerInitialsContainer: {
@@ -440,8 +526,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: COLORS.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: SIZES.padding,
   },
   headerInitials: {

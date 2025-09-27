@@ -15,25 +15,19 @@ import * as Animatable from "react-native-animatable";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import CustomSelect from "./CustomSelect";
-import { useCreateFishSale, useEspeces } from "../services";
+import { useCreateFishSale } from "../services";
 import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
 interface SaleForm {
   date: string;
   bassin: string;
-  espece_poisson: string; // Rendre obligatoire
+  espece_poisson: string;
   kg_poisson: string;
   prix_kg_poisson: string;
   prix_total: string;
   nom_complet_client?: string;
   mode_paiement: string;
-}
-
-// Type pour une espèce
-interface Espece {
-  label: string;
-  value: string;
 }
 
 interface AddFishSaleModalProps {
@@ -68,14 +62,12 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
     { label: "Bassin Sud", value: "Bassin Sud" },
   ];
 
-  // Récupérer les espèces dynamiquement
-  const { data: especesData = [], isLoading: isEspecesLoading, isError: isEspecesError } = useEspeces();
+  // Liste statique des espèces
   const especes = [
     { label: "Sélectionner une espèce", value: "" },
-    ...especesData.map((espece: Espece) => ({
-      label: espece.label,
-      value: espece.value,
-    })),
+    { label: "Tilapia", value: "tilapia" },
+    { label: "Silure", value: "silure" },
+    { label: "Carpe", value: "carpe" },
   ];
 
   // Options pour les modes de paiement
@@ -102,7 +94,7 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
     const newErrors: { [key: string]: string } = {};
     if (!form.date) newErrors.date = "Date requise";
     if (!form.bassin) newErrors.bassin = "Bassin requis";
-    if (!form.espece_poisson) newErrors.espece_poisson = "Espèce requise"; // Rendre obligatoire
+    if (!form.espece_poisson) newErrors.espece_poisson = "Espèce requise";
     if (!form.kg_poisson || parseFloat(form.kg_poisson) <= 0)
       newErrors.kg_poisson = "Quantité positive requise";
     if (!form.prix_kg_poisson || parseFloat(form.prix_kg_poisson) <= 0)
@@ -127,11 +119,11 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
         nom_complet_client: form.nom_complet_client || null,
         mode_paiement: form.mode_paiement,
       };
-      console.log("Données envoyées à l'API:", saleData);
+      console.log("Données envoyées à l'API:", JSON.stringify(saleData, null, 2));
       console.log("Espèce sélectionnée:", form.espece_poisson);
       createFishSale(saleData, {
         onSuccess: (data) => {
-          console.log("Vente poisson créée avec succès:", data);
+          console.log("Vente poisson créée avec succès:", JSON.stringify(data, null, 2));
           Toast.show({
             type: "successToast",
             props: {
@@ -249,8 +241,6 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
             {/* Champ Espèce */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Espèce *</Text>
-              {isEspecesLoading && <Text style={styles.loadingText}>Chargement des espèces...</Text>}
-              {isEspecesError && <Text style={styles.errorText}>Erreur lors du chargement des espèces</Text>}
               <CustomSelect
                 options={especes}
                 value={form.espece_poisson}
@@ -260,7 +250,6 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
                 }}
                 placeholder="Sélectionner une espèce"
                 error={errors.espece_poisson}
-                disabled={isEspecesLoading}
               />
               {errors.espece_poisson && (
                 <Text style={styles.errorText}>{errors.espece_poisson}</Text>
@@ -456,12 +445,6 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontSmall,
     fontFamily: FONTS.regular,
     color: COLORS.error,
-    marginTop: 4,
-  },
-  loadingText: {
-    fontSize: SIZES.fontMedium,
-    fontFamily: FONTS.regular,
-    color: COLORS.text,
     marginTop: 4,
   },
   submitButton: {

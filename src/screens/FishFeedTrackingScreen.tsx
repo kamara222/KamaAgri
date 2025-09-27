@@ -5,22 +5,24 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddFishFeedModal from '../components/AddFishFeedModal';
-import { useFishFeedDistributions, useBassins } from '../services';
+import { useFishFeedDistributions, useBassins, useDeleteFishFeedDistribution } from '../services';
+import Toast from 'react-native-toast-message';
 
 // Types pour une distribution d’aliment
 interface FishFeedDistribution {
   id: string;
-  date?: string;
+  date: string;
   nom_alimentation: string;
   type: string;
   poids: number;
-  nombre?: number;
+  nombre: number;
 }
 
 const FishFeedTrackingScreen: React.FC = () => {
@@ -54,8 +56,51 @@ const FishFeedTrackingScreen: React.FC = () => {
   // Utiliser le hook pour récupérer les distributions avec filtre par type
   const { data: distributions = [], isLoading, isError } = useFishFeedDistributions(filterTypeAliment);
 
+  // Hook pour supprimer une distribution
+  const deleteFishFeedDistributionMutation = useDeleteFishFeedDistribution();
+
   // Log pour déboguer les données reçues
-  console.log('Distributions reçues:', distributions);
+  console.log('Distributions reçues:', JSON.stringify(distributions, null, 2));
+
+  // Gérer la suppression d'une distribution
+  const handleDeleteDistribution = (distributionId: string, distribution: FishFeedDistribution) => {
+    Alert.alert(
+      'Confirmer la suppression',
+      `Voulez-vous vraiment supprimer la distribution de ${distribution.nom_alimentation} (${distribution.type}) ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            deleteFishFeedDistributionMutation.mutate(distributionId, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'successToast',
+                  props: {
+                    message: 'Distribution supprimée avec succès',
+                  },
+                });
+              },
+              onError: (error) => {
+                console.error('Erreur lors de la suppression:', error);
+                Toast.show({
+                  type: 'errorToast',
+                  props: {
+                    message: 'Erreur',
+                    description: 'Erreur lors de la suppression de la distribution',
+                  },
+                });
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
 
   // Filtrer localement pour bassin et période
   const filteredDistributions = distributions.filter((distribution) => {
@@ -82,11 +127,17 @@ const FishFeedTrackingScreen: React.FC = () => {
       <View style={styles.cardHeader}>
         <Icon name="restaurant" size={28} color={COLORS.accent} />
         <Text style={styles.cardTitle}>{item.nom_alimentation}</Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteDistribution(item.id, item)}
+        >
+          <Icon name="delete" size={24} color={COLORS.error} />
+        </TouchableOpacity>
       </View>
-      {item.date && <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>}
+      <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>
       <Text style={styles.cardDetail}>Type d’aliment: {item.type}</Text>
       <Text style={styles.cardDetail}>Quantité: {item.poids} kg</Text>
-      {item.nombre && <Text style={styles.cardDetail}>Nombre: {item.nombre}</Text>}
+      <Text style={styles.cardDetail}>Nombre: {item.nombre}</Text>
     </Animatable.View>
   );
 
@@ -98,12 +149,12 @@ const FishFeedTrackingScreen: React.FC = () => {
 
       {/* Filtres */}
       <View style={styles.filterContainer}>
-        {/* <CustomSelect
+        <CustomSelect
           options={bassins}
           value={filterBassin}
           onChange={setFilterBassin}
           placeholder="Filtrer par bassin"
-        /> */}
+        />
         <CustomSelect
           options={typesAliment}
           value={filterTypeAliment}
@@ -185,6 +236,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.primary,
     marginLeft: SIZES.margin / 2,
+    flex: 1,
   },
   cardDetail: {
     fontSize: SIZES.fontMedium,
@@ -228,6 +280,9 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textAlign: 'center',
     marginTop: SIZES.margin,
+  },
+  deleteButton: {
+    padding: 8,
   },
 });
 

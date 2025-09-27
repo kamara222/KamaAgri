@@ -13,7 +13,7 @@ import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddFishSaleModal from '../components/AddFishSaleModal';
-import { useFishSales, useEspeces, useDeleteFishSale } from '../services';
+import { useFishSales, useDeleteFishSale } from '../services';
 import Toast from 'react-native-toast-message';
 
 // Types pour une vente
@@ -22,7 +22,7 @@ interface FishSale {
   date: string;
   type_de_vente: string;
   bassin: string;
-  espece_poisson?: string | null;
+  espece_poisson?: string | { code: string; nom: string } | null;
   kg_poisson: number;
   prix_kg_poisson?: number;
   prix_total: number;
@@ -51,14 +51,12 @@ const FishSalesTrackingScreen: React.FC = () => {
     { label: 'Bassin Sud', value: 'Bassin Sud' },
   ];
 
-  // Récupérer les espèces dynamiquement
-  const { data: especesData = [], isLoading: isEspecesLoading, isError: isEspecesError } = useEspeces();
+  // Liste statique des espèces
   const especes = [
     { label: 'Toutes espèces', value: '' },
-    ...especesData.map((espece: Espece) => ({
-      label: espece.label,
-      value: espece.value,
-    })),
+    { label: 'Tilapia', value: 'tilapia' },
+    { label: 'Silure', value: 'silure' },
+    { label: 'Carpe', value: 'carpe' },
   ];
 
   const periods = [
@@ -79,7 +77,6 @@ const FishSalesTrackingScreen: React.FC = () => {
 
   // Log pour déboguer les données reçues
   console.log('Ventes poissons reçues (brut):', JSON.stringify(sales, null, 2));
-  console.log('Espèces chargées:', JSON.stringify(especesData, null, 2));
   console.log('État de chargement:', isLoading);
   console.log('Erreur API:', isError);
   console.log('Filtre espèce appliqué:', filterEspece);
@@ -117,7 +114,11 @@ const FishSalesTrackingScreen: React.FC = () => {
 
       // Gestion de la recherche par espèce, bassin ou client
       const espece = sale.espece_poisson
-        ? sale.espece_poisson.toLowerCase()
+        ? typeof sale.espece_poisson === 'string'
+          ? sale.espece_poisson.toLowerCase()
+          : sale.espece_poisson.nom
+          ? sale.espece_poisson.nom.toLowerCase()
+          : ''
         : '';
       const bassin =
         sale.bassin !== null && sale.bassin !== undefined
@@ -134,14 +135,14 @@ const FishSalesTrackingScreen: React.FC = () => {
 
       return matchesPeriod && matchesClient && matchesSearch;
     } catch (error) {
-      console.error('Erreur de filtrage:', error);
+      console.error('Erreur de filtrage pour vente:', sale, error);
       return true;
     }
   }) : [];
 
   // Gérer la suppression d'une vente
   const handleDeleteSale = (saleId: string, sale: FishSale) => {
-    const especeDisplay = sale.espece_poisson || 'Inconnu';
+    const especeDisplay = getEspeceName(sale.espece_poisson);
     Alert.alert(
       'Confirmer la suppression',
       `Voulez-vous vraiment supprimer la vente pour ${sale.bassin} (${especeDisplay}) ?`,
@@ -179,15 +180,21 @@ const FishSalesTrackingScreen: React.FC = () => {
   };
 
   // Mapper le code de l'espèce à son nom pour l'affichage
-  const getEspeceName = (espece_poisson?: string | null) => {
+  const getEspeceName = (espece_poisson?: string | { code: string; nom: string } | null) => {
     if (!espece_poisson) {
       console.log('espece_poisson est null ou undefined:', espece_poisson);
       return 'Non spécifiée';
     }
-    const espece = especesData.find((e: Espece) => e.value === espece_poisson);
-    console.log(`Recherche de l'espèce "${espece_poisson}" dans especesData:`, especesData);
+    if (typeof espece_poisson === 'string') {
+      const espece = especes.find((e: Espece) => e.value === espece_poisson);
+      console.log(`Recherche de l'espèce "${espece_poisson}" dans especes:`, especes);
+      console.log('Espèce trouvée:', espece);
+      return espece ? espece.label : espece_poisson;
+    }
+    console.log(`Recherche de l'espèce (objet) "${espece_poisson.code}" dans especes:`, especes);
+    const espece = especes.find((e: Espece) => e.value === espece_poisson.code);
     console.log('Espèce trouvée:', espece);
-    return espece ? espece.label : espece_poisson;
+    return espece ? espece.label : espece_poisson.nom || 'Non spécifiée';
   };
 
   // Rendu de chaque carte de vente
@@ -218,11 +225,10 @@ const FishSalesTrackingScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* Indicateur de chargement */}
-      {isLoading || isEspecesLoading ? (
+      {isLoading ? (
         <Text style={styles.loadingText}>Chargement...</Text>
       ) : null}
       {isError && <Text style={styles.errorText}>Erreur lors du chargement des ventes</Text>}
-      {isEspecesError && <Text style={styles.errorText}>Erreur lors du chargement des espèces</Text>}
 
       {/* Barre de recherche */}
       <View style={styles.searchContainer}>
@@ -290,7 +296,7 @@ const FishSalesTrackingScreen: React.FC = () => {
         isVisible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onSubmit={(sale) => {
-          console.log('Nouvelle vente soumise:', sale);
+          console.log('Nouvelle vente soumise:', JSON.stringify(sale, null, 2));
           setIsModalVisible(false);
         }}
       />
