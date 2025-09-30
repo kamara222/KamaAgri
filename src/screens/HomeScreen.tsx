@@ -16,9 +16,10 @@ import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import { useLogout, useLots, useBassins, useRoleServices } from "../services";
+import { useLogout, useRoleServices, useStats, useChickenSales, useFishSales } from "../services";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/Navigation";
+import CustomSelect from "../components/CustomSelect";
 
 // Interface pour les informations utilisateur
 interface UserInfo {
@@ -30,50 +31,32 @@ interface UserInfo {
   };
 }
 
-// Interface pour un lot
-interface Lot {
+// Interface pour les statistiques
+interface Stats {
+  totalPouletRestant: number;
+  totalPoissonRestant: number;
+  nbrePouletVendu: number;
+  nbrePouletMort: number;
+  nbrePoissonVendu: number;
+  nbrePoissonMort: number;
+  prixVentePouletMois: number;
+  prixVentePoissonMois: number;
+  totalVentesMois: number;
+  periode: {
+    debut: string;
+    finExclusive: string;
+  };
+}
+
+// Interface pour une vente
+interface Sale {
   id: string;
-  batiment: string | null;
-  race: string | { code: string; nom: string } | null;
+  type_de_vente: string;
+  prix_total: number;
   date: string;
-  nombre: number;
-  poids_moyen: number;
+  batiment?: string;
+  bassin?: string;
 }
-
-// Interface pour un bassin
-interface Basin {
-  id: string;
-  nom_bassin: string;
-  espece: string | { code: string; nom: string } | null;
-  date?: string;
-  nombre?: number;
-}
-
-// Données mock pour les cartes
-const summaryDataTemplate = [
-  { title: "Total Poulets", value: "0", unit: "têtes", icon: "egg", code: "poulets" },
-  { title: "Total Poissons", value: "0", unit: "têtes", icon: "waves", code: "poissons" },
-  { title: "Stocks Critiques", value: "3", unit: "articles", icon: "warning", code: "stocks" },
-  {
-    title: "Ventes Mois",
-    value: "150,000",
-    unit: "XAF",
-    icon: "shopping-cart",
-    code: "ventes",
-  },
-];
-
-// Données mock pour le graphique des ventes (7 jours)
-const salesChartData = {
-  labels: ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
-  datasets: [
-    {
-      data: [50000, 75000, 60000, 90000, 120000, 80000, 95000],
-      color: () => COLORS.accent,
-      strokeWidth: 2,
-    },
-  ],
-};
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -82,31 +65,53 @@ const HomeScreen: React.FC = () => {
   const { mutate: logout } = useLogout();
   const [userInitials, setUserInitials] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
+  const [filterType, setFilterType] = useState<string>("");
   const {
-    data: lots,
-    isLoading: isLotsLoading,
-    isError: isLotsError,
-  } = useLots();
+    data: stats,
+    isLoading: isStatsLoading,
+    isError: isStatsError,
+  } = useStats();
   const {
-    data: basins,
-    isLoading: isBasinsLoading,
-    isError: isBasinsError,
-  } = useBassins();
-  const { data: userServices, isLoading: isServicesLoading, isError: isServicesError } = useRoleServices(userRole, !!userRole);
+    data: chickenSales,
+    isLoading: isChickenSalesLoading,
+    isError: isChickenSalesError,
+  } = useChickenSales();
+  const {
+    data: fishSales,
+    isLoading: isFishSalesLoading,
+    isError: isFishSalesError,
+  } = useFishSales();
+  const {
+    data: userServices,
+    isLoading: isServicesLoading,
+    isError: isServicesError,
+  } = useRoleServices(userRole, !!userRole);
 
-  // Calculer le total des poulets
-  const totalChickens = lots
-    ? lots.reduce((sum, lot) => sum + (lot.nombre || 0), 0)
-    : 0;
-
-  // Calculer le total des poissons
-  const totalFish = basins
-    ? basins.reduce((sum, basin) => sum + (basin.nombre || 0), 0)
-    : 0;
+  // Options pour le filtre de type
+  const typeOptions = [
+    { label: "Tous", value: "" },
+    { label: "Poulets", value: "Poulets" },
+    { label: "Poissons", value: "Poissons" },
+  ];
 
   // Formatter les nombres avec des séparateurs de milliers
-  const formattedTotalChickens = totalChickens.toLocaleString("fr-FR");
-  const formattedTotalFish = totalFish.toLocaleString("fr-FR");
+  const formattedTotalChickens = stats?.totalPouletRestant.toLocaleString("fr-FR") ?? "0";
+  const formattedTotalFish = stats?.totalPoissonRestant.toLocaleString("fr-FR") ?? "0";
+  const formattedTotalSales = stats?.totalVentesMois.toLocaleString("fr-FR") ?? "0";
+
+  // Données des cartes
+  const summaryDataTemplate = [
+    { title: "Total Poulets", value: "0", unit: "têtes", icon: "egg", code: "poulets" },
+    { title: "Total Poissons", value: "0", unit: "têtes", icon: "waves", code: "poissons" },
+    { title: "Stocks Critiques", value: "3", unit: "articles", icon: "warning", code: "stocks" },
+    {
+      title: "Ventes Mois",
+      value: "0",
+      unit: "XAF",
+      icon: "shopping-cart",
+      code: "ventes",
+    },
+  ];
 
   // Utiliser roleServices s'il existe, sinon utiliser tous les services disponibles comme secours
   const effectiveServices = useMemo(() => {
@@ -144,9 +149,9 @@ const HomeScreen: React.FC = () => {
           if (item.title === "Total Poulets") {
             return {
               ...item,
-              value: isLotsLoading
+              value: isStatsLoading
                 ? "Chargement..."
-                : isLotsError
+                : isStatsError
                 ? "Erreur"
                 : formattedTotalChickens,
             };
@@ -154,25 +159,86 @@ const HomeScreen: React.FC = () => {
           if (item.title === "Total Poissons") {
             return {
               ...item,
-              value: isBasinsLoading
+              value: isStatsLoading
                 ? "Chargement..."
-                : isBasinsError
+                : isStatsError
                 ? "Erreur"
                 : formattedTotalFish,
             };
           }
+          if (item.title === "Ventes Mois") {
+            return {
+              ...item,
+              value: isStatsLoading
+                ? "Chargement..."
+                : isStatsError
+                ? "Erreur"
+                : formattedTotalSales,
+            };
+          }
           return item;
         }),
-    [
-      effectiveServices,
-      isLotsLoading,
-      isLotsError,
-      formattedTotalChickens,
-      isBasinsLoading,
-      isBasinsError,
-      formattedTotalFish,
-    ]
+    [effectiveServices, isStatsLoading, isStatsError, formattedTotalChickens, formattedTotalFish, formattedTotalSales]
   );
+
+  // Calculer les 7 derniers jours pour les labels du graphique
+  const getLast7Days = () => {
+    const days: string[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      days.push(date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }));
+    }
+    return days;
+  };
+
+  // Données du graphique des ventes (7 jours)
+  const salesChartData = useMemo(() => {
+    if (isChickenSalesLoading || isFishSalesLoading || !chickenSales || !fishSales) {
+      return {
+        labels: getLast7Days(),
+        datasets: [{ data: [0, 0, 0, 0, 0, 0, 0], color: () => COLORS.accent, strokeWidth: 2 }],
+      };
+    }
+
+    const labels = getLast7Days();
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    // Combiner les ventes de poulets et de poissons
+    const allSales: Sale[] = [
+      ...chickenSales.map((sale) => ({ ...sale, type_de_vente: "Poulets" })),
+      ...fishSales.map((sale) => ({ ...sale, type_de_vente: "Poissons" })),
+    ];
+
+    // Filtrer les ventes des 7 derniers jours
+    const filteredSales = allSales.filter((sale) => {
+      const saleDate = new Date(sale.date);
+      return saleDate >= sevenDaysAgo && saleDate <= today;
+    });
+
+    // Agréger les montants par jour
+    const dailyTotals: { [key: string]: number } = {};
+    labels.forEach((label) => {
+      dailyTotals[label] = 0;
+    });
+
+    filteredSales.forEach((sale) => {
+      const saleDate = new Date(sale.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+      if (labels.includes(saleDate) && (!filterType || sale.type_de_vente === filterType)) {
+        dailyTotals[saleDate] += sale.prix_total;
+      }
+    });
+
+    const data = labels.map((label) => dailyTotals[label] || 0);
+
+    return {
+      labels,
+      datasets: [{ data, color: () => COLORS.accent, strokeWidth: 2 }],
+    };
+  }, [chickenSales, fishSales, isChickenSalesLoading, isFishSalesLoading, filterType]);
 
   // Liste des boutons de navigation rapide
   const navButtons = useMemo(
@@ -411,8 +477,21 @@ const HomeScreen: React.FC = () => {
           {/* Section des graphiques */}
           {effectiveServices.includes("ventes") && (
             <View style={styles.chartContainer}>
-              <Text style={styles.sectionTitle}>Ventes (7 jours, XAF)</Text>
-              {isDataValid ? (
+              <View style={styles.chartHeader}>
+                <Text style={styles.sectionTitle}>Ventes (7 jours, XAF)</Text>
+                <CustomSelect
+                  options={typeOptions}
+                  value={filterType}
+                  onChange={setFilterType}
+                  placeholder="Type"
+                  style={styles.filterSelect}
+                />
+              </View>
+              {isChickenSalesLoading || isFishSalesLoading ? (
+                <Text style={styles.loadingText}>Chargement des données...</Text>
+              ) : isChickenSalesError || isFishSalesError ? (
+                <Text style={styles.errorText}>Erreur lors du chargement des données des ventes.</Text>
+              ) : isDataValid ? (
                 <Animatable.View animation="bounceIn" duration={1000}>
                   <LineChart
                     data={salesChartData}
@@ -538,6 +617,16 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     padding: SIZES.padding,
+  },
+  chartHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SIZES.margin,
+  },
+  filterSelect: {
+    width: 120,
+    padding: SIZES.padding / 2,
   },
   chart: {
     borderRadius: SIZES.radius,

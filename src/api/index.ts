@@ -67,7 +67,7 @@ interface FishFeedDistribution {
   nombre?: number;
 }
 
-// Interface pour une vente (générique pour poissons et poulets)
+// Interface pour une vente
 interface Sale {
   id: string;
   date: string;
@@ -127,6 +127,23 @@ interface LoginResponse {
       nom: string;
       description: string;
     };
+  };
+}
+
+// Interface pour les statistiques
+interface Stats {
+  totalPouletRestant: number;
+  totalPoissonRestant: number;
+  nbrePouletVendu: number;
+  nbrePouletMort: number;
+  nbrePoissonVendu: number;
+  nbrePoissonMort: number;
+  prixVentePouletMois: number;
+  prixVentePoissonMois: number;
+  totalVentesMois: number;
+  periode: {
+    debut: string;
+    finExclusive: string;
   };
 }
 
@@ -616,6 +633,18 @@ export const createUser = async (user: {
   }
 };
 
+// Supprimer un utilisateur
+export const deleteUser = async (id: string) => {
+  const endpoint = `/utilisateurs/${id}`;
+  try {
+    const res: AxiosResponse = await api.delete(endpoint);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
 // Récupérer les services pour un rôle
 export const getRoleServices = async (roleId: string) => {
   const endpoint = `/role-servive?roleId=${roleId}`;
@@ -638,7 +667,7 @@ export const getRoleServices = async (roleId: string) => {
             return [];
           }
         })
-        .flat(); // Aplatir le tableau de tableaux en un seul tableau
+        .flat();
     }
 
     console.log("Services parsés:", roleServices);
@@ -663,6 +692,19 @@ export const assignRoleServices = async (data: {
     console.log('Envoi des services à l\'API:', data);
     const res: AxiosResponse = await api.post(endpoint, data);
     console.log('Réponse de l\'API:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Récupérer les statistiques
+export const getStats = async () => {
+  const endpoint = '/divers/stats';
+  try {
+    const res: AxiosResponse<Stats> = await api.get(endpoint);
+    console.log('Statistiques récupérées:', res.data);
     return res.data;
   } catch (error) {
     console.error('API error:', endpoint, error);

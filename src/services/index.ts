@@ -31,8 +31,10 @@ import {
   logout,
   getUsers,
   createUser,
+  deleteUser,
   getRoleServices,
   assignRoleServices,
+  getStats,
 } from '../api';
 
 // Hook pour récupérer les élevages
@@ -373,6 +375,21 @@ export const useCreateUser = () => {
   });
 };
 
+// Hook pour supprimer un utilisateur
+export const useDeleteUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      console.log('Utilisateur supprimé avec succès');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      console.error('Erreur lors de la suppression de l\'utilisateur:', error.response?.data || error);
+    },
+  });
+};
+
 // Hook pour récupérer les services d'un rôle
 export const useRoleServices = (roleId: string, enabled: boolean = true) => {
   return useQuery({
@@ -394,5 +411,13 @@ export const useAssignRoleServices = () => {
     onError: (error: any) => {
       console.error('Erreur lors de l\'attribution des services:', error.response?.data || error);
     },
+  });
+};
+
+// Hook pour récupérer les statistiques
+export const useStats = () => {
+  return useQuery({
+    queryKey: ['stats'],
+    queryFn: () => getStats().then((res) => res),
   });
 };

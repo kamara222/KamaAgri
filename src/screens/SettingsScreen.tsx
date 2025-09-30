@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import * as Animatable from 'react-native-animatable';
 import Modal from 'react-native-modal';
 import { Picker } from '@react-native-picker/picker';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
-import { useUsers, useCreateUser, useRoleServices, useAssignRoleServices } from '../services';
+import { useUsers, useCreateUser, useDeleteUser, useRoleServices, useAssignRoleServices } from '../services';
+import Toast from 'react-native-toast-message';
 
 // Interfaces
 interface User {
@@ -62,11 +63,20 @@ const SettingsScreen: React.FC = () => {
   // Hooks React Query
   const { data: users = [], isLoading: isUsersLoading } = useUsers();
   const createUserMutation = useCreateUser();
+  const deleteUserMutation = useDeleteUser();
   const assignRoleServicesMutation = useAssignRoleServices();
   const { data: roleServicesData, isLoading: isServicesLoading } = useRoleServices(
     selectedUser?.role.code || '',
     !!selectedUser
   );
+
+  // Synchroniser selectedServices avec roleServicesData.roleServices
+  useEffect(() => {
+    if (roleServicesData?.roleServices && !isServicesLoading) {
+      console.log('Mise à jour de selectedServices:', roleServicesData.roleServices);
+      setSelectedServices(roleServicesData.roleServices);
+    }
+  }, [roleServicesData, isServicesLoading]);
 
   // Options des rôles
   const roles = [
@@ -97,7 +107,10 @@ const SettingsScreen: React.FC = () => {
         numeroTelephone: newUser.numeroTelephone,
       });
 
-      Alert.alert('Succès', 'Utilisateur créé avec succès.');
+      Toast.show({
+        type: 'successToast',
+        props: { message: 'Utilisateur créé avec succès.' },
+      });
       setAddUserModalVisible(false);
       setNewUser({
         nom: '',
@@ -109,8 +122,42 @@ const SettingsScreen: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Erreur lors de la création:', error);
-      Alert.alert('Erreur', error.response?.data?.message || 'Échec de la création.');
+      Toast.show({
+        type: 'errorToast',
+        props: { message: error.response?.data?.message || 'Échec de la création.' },
+      });
     }
+  };
+
+  // Supprimer un utilisateur
+  const handleDeleteUser = (user: User) => {
+    Alert.alert(
+      'Confirmation',
+      `Voulez-vous vraiment supprimer l'utilisateur ${user.prenom} ${user.nom} ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteUserMutation.mutateAsync(user.id);
+              Toast.show({
+                type: 'successToast',
+                props: { message: 'Utilisateur supprimé avec succès.' },
+              });
+            } catch (error: any) {
+              console.error('Erreur lors de la suppression:', error);
+              Toast.show({
+                type: 'errorToast',
+                props: { message: error.response?.data?.message || 'Échec de la suppression.' },
+              });
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   // Attribuer des services à un utilisateur
@@ -123,13 +170,19 @@ const SettingsScreen: React.FC = () => {
         services: selectedServices,
       });
 
-      Alert.alert('Succès', 'Services attribués avec succès.');
+      Toast.show({
+        type: 'successToast',
+        props: { message: 'Services attribués avec succès.' },
+      });
       setRoleServiceModalVisible(false);
       setSelectedUser(null);
       setSelectedServices([]);
     } catch (error: any) {
       console.error('Erreur lors de l\'attribution:', error);
-      Alert.alert('Erreur', error.response?.data?.message || 'Échec de l\'attribution.');
+      Toast.show({
+        type: 'errorToast',
+        props: { message: error.response?.data?.message || 'Échec de l\'attribution.' },
+      });
     }
   };
 
@@ -148,6 +201,14 @@ const SettingsScreen: React.FC = () => {
       <View style={styles.cardHeader}>
         <Icon name="person" size={28} color={COLORS.accent} />
         <Text style={styles.cardTitle}>{`${item.prenom} ${item.nom}`}</Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteUser(item)}
+          accessibilityLabel={`Supprimer ${item.prenom} ${item.nom}`}
+          accessibilityHint="Ouvre une modale pour confirmer la suppression de l'utilisateur"
+        >
+          <Icon name="delete" size={20} color={COLORS.error} />
+        </TouchableOpacity>
       </View>
       <Text style={styles.cardDetail}>Email: {item.email}</Text>
       <Text style={styles.cardDetail}>Téléphone: {item.numeroTelephone}</Text>
@@ -158,8 +219,8 @@ const SettingsScreen: React.FC = () => {
           style={styles.assignButton}
           onPress={() => {
             setSelectedUser(item);
-            setSelectedServices(roleServicesData?.roleServices || []);
             setRoleServiceModalVisible(true);
+            console.log('Utilisateur sélectionné:', item);
           }}
         >
           <Icon name="settings" size={20} color={COLORS.white} />
@@ -360,7 +421,11 @@ const SettingsScreen: React.FC = () => {
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={styles.modalButton}
-              onPress={() => setRoleServiceModalVisible(false)}
+              onPress={() => {
+                setRoleServiceModalVisible(false);
+                setSelectedUser(null);
+                setSelectedServices([]);
+              }}
             >
               <Text style={styles.modalButtonText}>Annuler</Text>
             </TouchableOpacity>
@@ -378,7 +443,7 @@ const SettingsScreen: React.FC = () => {
   );
 };
 
-// Les styles restent inchangés
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -478,6 +543,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.white,
     marginLeft: SIZES.margin / 2,
+  },
+  deleteButton: {
+    padding: SIZES.padding / 2,
   },
   actionButton: {
     flexDirection: 'row',
