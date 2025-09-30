@@ -1,4 +1,3 @@
-// src/screens/SettingsScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -14,400 +13,427 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
 import Modal from 'react-native-modal';
 import { Picker } from '@react-native-picker/picker';
-import CustomSelect from '../components/CustomSelect';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
+import { useUsers, useCreateUser, useRoleServices, useAssignRoleServices } from '../services';
 
-// Données mock pour les utilisateurs et types (à remplacer par API)
-const mockUsers = [
-  { id: '1', name: 'Jean Dupont', email: 'jean@example.com', role: 'admin' },
-  { id: '2', name: 'Marie Curie', email: 'marie@example.com', role: 'gestionnaire' },
-  { id: '3', name: 'Paul Martin', email: 'paul@example.com', role: 'opérateur' },
-];
-
-const mockTypes = {
-  aliments: ['Maïs', 'Soja'],
-  races: ['Plymouth Rock', 'Rhode Island'],
-  espèces: ['Tilapia', 'Carpe'],
-};
-
-// Types pour un utilisateur
+// Interfaces
 interface User {
   id: string;
-  name: string;
+  nom: string;
+  prenom: string;
   email: string;
-  role: string;
+  numeroTelephone: string;
+  role: {
+    code: string;
+    nom: string;
+  };
 }
 
-// Types pour les paramètres généraux
-interface GeneralSettings {
-  stockAlertThreshold: number;
+interface Service {
+  code: string;
+  name: string;
+}
+
+interface RoleServiceData {
+  roleServices: string[];
+  services: Service[];
 }
 
 const SettingsScreen: React.FC = () => {
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [filterRole, setFilterRole] = useState('');
+  // États pour les onglets
+  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
+  
+  // États pour la gestion des utilisateurs
   const [isAddUserModalVisible, setAddUserModalVisible] = useState(false);
-  const [isAddTypeModalVisible, setAddTypeModalVisible] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
-    name: '',
+    nom: '',
+    prenom: '',
     email: '',
-    role: 'opérateur',
     password: '',
+    role: 'OPER',
+    numeroTelephone: '',
   });
-  const [newType, setNewType] = useState({ category: 'aliments', name: '' });
-  const [settings, setSettings] = useState<GeneralSettings>({ stockAlertThreshold: 10 });
-  const [thresholdInput, setThresholdInput] = useState(settings.stockAlertThreshold.toString());
 
-  // Options pour les filtres de rôle
-  const roles = [
-    { label: 'Tous les rôles', value: '' },
-    { label: 'Admin', value: 'admin' },
-    { label: 'Gestionnaire', value: 'gestionnaire' },
-    { label: 'Opérateur', value: 'opérateur' },
-  ];
+  // États pour la gestion des rôles et services
+  const [isRoleServiceModalVisible, setRoleServiceModalVisible] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
-  // Options pour les catégories de types
-  const typeCategories = [
-    { label: 'Aliments', value: 'aliments' },
-    { label: 'Races', value: 'races' },
-    { label: 'Espèces', value: 'espèces' },
-  ];
-
-  // Filtrer les utilisateurs
-  const filteredUsers = users.filter(
-    (user) => !filterRole || user.role === filterRole
+  // Hooks React Query
+  const { data: users = [], isLoading: isUsersLoading } = useUsers();
+  const createUserMutation = useCreateUser();
+  const assignRoleServicesMutation = useAssignRoleServices();
+  const { data: roleServicesData, isLoading: isServicesLoading } = useRoleServices(
+    selectedUser?.role.code || '',
+    !!selectedUser
   );
 
-  // Ajouter ou modifier un utilisateur
-  const handleSaveUser = () => {
-    if (!newUser.name || !newUser.email || (!editingUser && !newUser.password)) {
+  // Options des rôles
+  const roles = [
+    { code: 'ADMIN', nom: 'Administrateur', description: "Administrateur de l'application" },
+    { code: 'GEST', nom: 'Gestionnaire', description: "Gestionnaire de l'application" },
+    { code: 'OPER', nom: 'Opérateur', description: "Opérateur de l'application" },
+  ];
+
+  // Créer un utilisateur
+  const handleCreateUser = async () => {
+    if (!newUser.nom || !newUser.prenom || !newUser.email || !newUser.password || !newUser.numeroTelephone) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
       return;
     }
-    if (!editingUser && newUser.password.length < 8) {
+
+    if (newUser.password.length < 8) {
       Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères.');
       return;
     }
-    if (
-      !editingUser &&
-      users.some((user) => user.email === newUser.email)
-    ) {
-      Alert.alert('Erreur', 'Cet email est déjà utilisé.');
-      return;
-    }
 
-    if (editingUser) {
-      setUsers(
-        users.map((user) =>
-          user.id === editingUser.id ? { ...user, ...newUser, id: user.id } : user
-        )
-      );
-    } else {
-      setUsers([
-        ...users,
-        {
-          id: (users.length + 1).toString(),
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
-        },
-      ]);
+    try {
+      await createUserMutation.mutateAsync({
+        nom: newUser.nom,
+        prenom: newUser.prenom,
+        email: newUser.email,
+        password: newUser.password,
+        role: newUser.role,
+        numeroTelephone: newUser.numeroTelephone,
+      });
+
+      Alert.alert('Succès', 'Utilisateur créé avec succès.');
+      setAddUserModalVisible(false);
+      setNewUser({
+        nom: '',
+        prenom: '',
+        email: '',
+        password: '',
+        role: 'OPER',
+        numeroTelephone: '',
+      });
+    } catch (error: any) {
+      console.error('Erreur lors de la création:', error);
+      Alert.alert('Erreur', error.response?.data?.message || 'Échec de la création.');
     }
-    setAddUserModalVisible(false);
-    setNewUser({ name: '', email: '', role: 'opérateur', password: '' });
-    setEditingUser(null);
   };
 
-  // Supprimer un utilisateur
-  const handleDeleteUser = (userId: string) => {
-    Alert.alert(
-      'Confirmer la suppression',
-      'Voulez-vous supprimer cet utilisateur ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => {
-            setUsers(users.filter((user) => user.id !== userId));
-          },
-        },
-      ]
+  // Attribuer des services à un utilisateur
+  const handleAssignServices = async () => {
+    if (!selectedUser) return;
+
+    try {
+      await assignRoleServicesMutation.mutateAsync({
+        roleId: selectedUser.role.code,
+        services: selectedServices,
+      });
+
+      Alert.alert('Succès', 'Services attribués avec succès.');
+      setRoleServiceModalVisible(false);
+      setSelectedUser(null);
+      setSelectedServices([]);
+    } catch (error: any) {
+      console.error('Erreur lors de l\'attribution:', error);
+      Alert.alert('Erreur', error.response?.data?.message || 'Échec de l\'attribution.');
+    }
+  };
+
+  // Toggle service selection
+  const toggleServiceSelection = (serviceCode: string) => {
+    setSelectedServices((prev) =>
+      prev.includes(serviceCode)
+        ? prev.filter((code) => code !== serviceCode)
+        : [...prev, serviceCode]
     );
-  };
-
-  // Ajouter un type
-  const handleAddType = () => {
-    if (!newType.name) {
-      Alert.alert('Erreur', 'Veuillez entrer un nom.');
-      return;
-    }
-    // Simuler l’ajout (à remplacer par API)
-    Alert.alert('Succès', `Type ${newType.name} ajouté à ${newType.category}.`);
-    setAddTypeModalVisible(false);
-    setNewType({ category: 'aliments', name: '' });
-  };
-
-  // Modifier le seuil d’alerte
-  const handleSaveThreshold = () => {
-    const threshold = parseInt(thresholdInput);
-    if (isNaN(threshold) || threshold < 0) {
-      Alert.alert('Erreur', 'Veuillez entrer un seuil valide.');
-      return;
-    }
-    setSettings({ stockAlertThreshold: threshold });
-    Alert.alert('Succès', 'Seuil d’alerte mis à jour.');
   };
 
   // Rendu de chaque utilisateur
   const renderUserItem = ({ item }: { item: User }) => (
-    <Animatable.View
-      animation="fadeInUp"
-      duration={500}
-      style={styles.userCard}
-    >
+    <Animatable.View animation="fadeInUp" duration={500} style={styles.userCard}>
       <View style={styles.cardHeader}>
         <Icon name="person" size={28} color={COLORS.accent} />
-        <Text style={styles.cardTitle}>{item.name}</Text>
+        <Text style={styles.cardTitle}>{`${item.prenom} ${item.nom}`}</Text>
       </View>
       <Text style={styles.cardDetail}>Email: {item.email}</Text>
-      <Text style={styles.cardDetail}>Rôle: {item.role}</Text>
-      <View style={styles.cardActions}>
+      <Text style={styles.cardDetail}>Téléphone: {item.numeroTelephone}</Text>
+      <Text style={styles.cardDetail}>Rôle: {item.role?.nom || 'N/A'}</Text>
+      
+      {activeTab === 'roles' && (
         <TouchableOpacity
-          style={styles.editButton}
+          style={styles.assignButton}
           onPress={() => {
-            setEditingUser(item);
-            setNewUser({
-              name: item.name,
-              email: item.email,
-              role: item.role,
-              password: '',
-            });
-            setAddUserModalVisible(true);
+            setSelectedUser(item);
+            setSelectedServices(roleServicesData?.roleServices || []);
+            setRoleServiceModalVisible(true);
           }}
-          accessibilityLabel={`Modifier l’utilisateur ${item.name}`}
-          accessibilityHint="Ouvre un formulaire pour modifier les détails de l’utilisateur"
         >
-          <Icon name="edit" size={24} color={COLORS.accent} />
+          <Icon name="settings" size={20} color={COLORS.white} />
+          <Text style={styles.assignButtonText}>Attribuer Services</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteUser(item.id)}
-          accessibilityLabel={`Supprimer l’utilisateur ${item.name}`}
-          accessibilityHint="Supprime l’utilisateur de la liste"
-        >
-          <Icon name="delete" size={24} color={COLORS.error} />
-        </TouchableOpacity>
-      </View>
+      )}
     </Animatable.View>
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Gestion des utilisateurs */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gestion des Utilisateurs</Text>
-        <CustomSelect
-          options={roles}
-          value={filterRole}
-          onChange={setFilterRole}
-          placeholder="Filtrer par rôle"
-          style={styles.filterSelect}
-        />
-        <FlatList
-          data={filteredUsers}
-          renderItem={renderUserItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>Aucun utilisateur</Text>
-          }
-          scrollEnabled={false} // Désactive le défilement de la FlatList
-        />
-        <Animatable.View animation="bounceIn" duration={1000}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              setEditingUser(null);
-              setNewUser({ name: '', email: '', role: 'opérateur', password: '' });
-              setAddUserModalVisible(true);
-            }}
-            accessibilityLabel="Ajouter un nouvel utilisateur"
-            accessibilityHint="Ouvre un formulaire pour ajouter un utilisateur"
-          >
-            <Icon name="person-add" size={24} color={COLORS.white} />
-            <Text style={styles.actionButtonText}>Ajouter Utilisateur</Text>
-          </TouchableOpacity>
-        </Animatable.View>
+    <View style={styles.container}>
+      {/* Onglets */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'users' && styles.activeTab]}
+          onPress={() => setActiveTab('users')}
+        >
+          <Icon name="person-add" size={24} color={activeTab === 'users' ? COLORS.accent : COLORS.textLight} />
+          <Text style={[styles.tabText, activeTab === 'users' && styles.activeTabText]}>
+            Créer Utilisateur
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'roles' && styles.activeTab]}
+          onPress={() => setActiveTab('roles')}
+        >
+          <Icon name="security" size={24} color={activeTab === 'roles' ? COLORS.accent : COLORS.textLight} />
+          <Text style={[styles.tabText, activeTab === 'roles' && styles.activeTabText]}>
+            Rôles & Services
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Paramètres généraux */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Paramètres Généraux</Text>
-        {/* Modifier seuil d’alerte */}
-        <View style={styles.formContainer}>
-          <Text style={styles.formLabel}>Seuil d’alerte des stocks (quantité)</Text>
-          <TextInput
-            style={styles.input}
-            value={thresholdInput}
-            onChangeText={setThresholdInput}
-            keyboardType="numeric"
-            placeholder="Entrez le seuil"
-            accessibilityLabel="Seuil d’alerte des stocks"
-          />
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSaveThreshold}
-            accessibilityLabel="Enregistrer le seuil d’alerte"
-          >
-            <Text style={styles.saveButtonText}>Enregistrer Seuil</Text>
-          </TouchableOpacity>
-        </View>
-        {/* Ajouter type */}
-        <Animatable.View animation="bounceIn" duration={1000} delay={200}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setAddTypeModalVisible(true)}
-            accessibilityLabel="Ajouter un nouveau type"
-            accessibilityHint="Ouvre un formulaire pour ajouter un type (aliment, race, espèce)"
-          >
-            <Icon name="add-circle" size={24} color={COLORS.white} />
-            <Text style={styles.actionButtonText}>Ajouter Type</Text>
-          </TouchableOpacity>
-        </Animatable.View>
-      </View>
+      {/* Contenu selon l'onglet actif */}
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        {activeTab === 'users' ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Gestion des Utilisateurs</Text>
+            
+            <Animatable.View animation="bounceIn" duration={1000}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => setAddUserModalVisible(true)}
+              >
+                <Icon name="person-add" size={24} color={COLORS.white} />
+                <Text style={styles.actionButtonText}>Ajouter Utilisateur</Text>
+              </TouchableOpacity>
+            </Animatable.View>
 
-      {/* Modal pour ajouter/modifier utilisateur */}
+            {isUsersLoading ? (
+              <Text style={styles.loadingText}>Chargement des utilisateurs...</Text>
+            ) : (
+              <FlatList
+                data={users}
+                renderItem={renderUserItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContainer}
+                ListEmptyComponent={<Text style={styles.emptyText}>Aucun utilisateur</Text>}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Attribution des Rôles et Services</Text>
+            <Text style={styles.sectionSubtitle}>
+              Sélectionnez un utilisateur pour lui attribuer des services
+            </Text>
+
+            {isUsersLoading ? (
+              <Text style={styles.loadingText}>Chargement des utilisateurs...</Text>
+            ) : (
+              <FlatList
+                data={users}
+                renderItem={renderUserItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContainer}
+                ListEmptyComponent={<Text style={styles.emptyText}>Aucun utilisateur</Text>}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Modal pour ajouter un utilisateur */}
       <Modal
         isVisible={isAddUserModalVisible}
         onBackdropPress={() => setAddUserModalVisible(false)}
         style={styles.modal}
       >
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            {editingUser ? 'Modifier Utilisateur' : 'Ajouter Utilisateur'}
-          </Text>
+          <Text style={styles.modalTitle}>Ajouter Utilisateur</Text>
+          
           <TextInput
             style={styles.input}
-            value={newUser.name}
-            onChangeText={(text) => setNewUser({ ...newUser, name: text })}
+            value={newUser.nom}
+            onChangeText={(text) => setNewUser({ ...newUser, nom: text })}
             placeholder="Nom"
-            accessibilityLabel="Nom de l’utilisateur"
           />
+          
+          <TextInput
+            style={styles.input}
+            value={newUser.prenom}
+            onChangeText={(text) => setNewUser({ ...newUser, prenom: text })}
+            placeholder="Prénom"
+          />
+          
           <TextInput
             style={styles.input}
             value={newUser.email}
             onChangeText={(text) => setNewUser({ ...newUser, email: text })}
-            placeholder="Email/Identifiant"
+            placeholder="Email"
             keyboardType="email-address"
             autoCapitalize="none"
-            accessibilityLabel="Email de l’utilisateur"
           />
+          
+          <TextInput
+            style={styles.input}
+            value={newUser.numeroTelephone}
+            onChangeText={(text) => setNewUser({ ...newUser, numeroTelephone: text })}
+            placeholder="Numéro de téléphone"
+            keyboardType="phone-pad"
+          />
+          
           <Picker
             selectedValue={newUser.role}
             onValueChange={(value) => setNewUser({ ...newUser, role: value })}
             style={styles.picker}
-            accessibilityLabel="Rôle de l’utilisateur"
           >
-            <Picker.Item label="Admin" value="admin" />
-            <Picker.Item label="Gestionnaire" value="gestionnaire" />
-            <Picker.Item label="Opérateur" value="opérateur" />
+            {roles.map((role) => (
+              <Picker.Item key={role.code} label={role.nom} value={role.code} />
+            ))}
           </Picker>
+          
           <TextInput
             style={styles.input}
             value={newUser.password}
             onChangeText={(text) => setNewUser({ ...newUser, password: text })}
-            placeholder={editingUser ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe'}
+            placeholder="Mot de passe"
             secureTextEntry
-            accessibilityLabel="Mot de passe de l’utilisateur"
           />
+
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setAddUserModalVisible(false)}
-              accessibilityLabel="Annuler"
             >
               <Text style={styles.modalButtonText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonSave]}
-              onPress={handleSaveUser}
-              accessibilityLabel="Enregistrer l’utilisateur"
+              onPress={handleCreateUser}
             >
-              <Text style={styles.modalButtonText}>Enregistrer</Text>
+              <Text style={styles.modalButtonText}>Créer</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Modal pour ajouter un type */}
+      {/* Modal pour attribuer des services */}
       <Modal
-        isVisible={isAddTypeModalVisible}
-        onBackdropPress={() => setAddTypeModalVisible(false)}
+        isVisible={isRoleServiceModalVisible}
+        onBackdropPress={() => setRoleServiceModalVisible(false)}
         style={styles.modal}
       >
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Ajouter Type</Text>
-          <Picker
-            selectedValue={newType.category}
-            onValueChange={(value) => setNewType({ ...newType, category: value })}
-            style={styles.picker}
-            accessibilityLabel="Catégorie du type"
-          >
-            <Picker.Item label="Aliments" value="aliments" />
-            <Picker.Item label="Races" value="races" />
-            <Picker.Item label="Espèces" value="espèces" />
-          </Picker>
-          <TextInput
-            style={styles.input}
-            value={newType.name}
-            onChangeText={(text) => setNewType({ ...newType, name: text })}
-            placeholder="Nom du type"
-            accessibilityLabel="Nom du type"
-          />
+          <Text style={styles.modalTitle}>Attribuer Services</Text>
+          
+          {selectedUser && (
+            <Text style={styles.modalSubtitle}>
+              Utilisateur: {selectedUser.prenom} {selectedUser.nom}
+            </Text>
+          )}
+
+          {isServicesLoading ? (
+            <Text style={styles.loadingText}>Chargement des services...</Text>
+          ) : (
+            <ScrollView style={styles.servicesContainer}>
+              {(roleServicesData?.services || []).map((service) => (
+                <TouchableOpacity
+                  key={service.code}
+                  style={styles.serviceItem}
+                  onPress={() => toggleServiceSelection(service.code)}
+                >
+                  <Icon
+                    name={selectedServices.includes(service.code) ? 'check-box' : 'check-box-outline-blank'}
+                    size={24}
+                    color={selectedServices.includes(service.code) ? COLORS.accent : COLORS.textLight}
+                  />
+                  <Text style={styles.serviceName}>{service.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={styles.modalButton}
-              onPress={() => setAddTypeModalVisible(false)}
-              accessibilityLabel="Annuler"
+              onPress={() => setRoleServiceModalVisible(false)}
             >
               <Text style={styles.modalButtonText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonSave]}
-              onPress={handleAddType}
-              accessibilityLabel="Enregistrer le type"
+              onPress={handleAssignServices}
+              disabled={isServicesLoading}
             >
               <Text style={styles.modalButtonText}>Enregistrer</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 
+// Les styles restent inchangés
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.textLight,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SIZES.padding,
+    gap: 8,
+  },
+  activeTab: {
+    borderBottomWidth: 3,
+    borderBottomColor: COLORS.accent,
+  },
+  tabText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
+  },
+  activeTabText: {
+    fontFamily: FONTS.bold,
+    color: COLORS.accent,
+  },
+  content: {
+    flex: 1,
   },
   scrollContent: {
     paddingBottom: SIZES.padding * 2,
   },
   section: {
     padding: SIZES.padding,
-    marginBottom: SIZES.margin,
   },
   sectionTitle: {
     fontSize: SIZES.fontTitle,
     fontFamily: FONTS.bold,
     color: COLORS.text,
+    marginBottom: SIZES.margin / 2,
+  },
+  sectionSubtitle: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
     marginBottom: SIZES.margin,
   },
   listContainer: {
-    paddingBottom: SIZES.padding,
+    paddingTop: SIZES.padding,
   },
   userCard: {
     backgroundColor: COLORS.white,
@@ -438,17 +464,20 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 4,
   },
-  cardActions: {
+  assignButton: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+    padding: SIZES.padding / 2,
+    borderRadius: SIZES.radius,
     marginTop: SIZES.margin / 2,
+    justifyContent: 'center',
   },
-  editButton: {
-    padding: SIZES.padding / 2,
-    marginRight: SIZES.margin / 2,
-  },
-  deleteButton: {
-    padding: SIZES.padding / 2,
+  assignButtonText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+    marginLeft: SIZES.margin / 2,
   },
   actionButton: {
     flexDirection: 'row',
@@ -456,7 +485,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
     padding: SIZES.padding,
     borderRadius: SIZES.radius,
-    marginTop: SIZES.margin,
+    marginBottom: SIZES.margin,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -469,22 +498,29 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     marginLeft: SIZES.margin / 2,
   },
-  formContainer: {
+  modal: {
+    justifyContent: 'center',
+    margin: SIZES.margin,
+  },
+  modalContent: {
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
     padding: SIZES.padding,
-    marginBottom: SIZES.margin,
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
+    maxHeight: '80%',
   },
-  formLabel: {
-    fontSize: SIZES.fontMedium,
+  modalTitle: {
+    fontSize: SIZES.fontTitle,
     fontFamily: FONTS.bold,
     color: COLORS.text,
     marginBottom: SIZES.margin / 2,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
+    marginBottom: SIZES.margin,
+    textAlign: 'center',
   },
   input: {
     borderWidth: 1,
@@ -496,45 +532,40 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: SIZES.margin,
   },
-  saveButton: {
-    backgroundColor: COLORS.accent,
-    padding: SIZES.padding,
-    borderRadius: SIZES.radius,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    fontSize: SIZES.fontMedium,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-  },
-  filterSelect: {
-    marginBottom: SIZES.margin,
-  },
-  modal: {
-    justifyContent: 'center',
-    margin: SIZES.margin,
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-  },
-  modalTitle: {
-    fontSize: SIZES.fontTitle,
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-    marginBottom: SIZES.margin,
-    textAlign: 'center',
-  },
   picker: {
     borderWidth: 1,
     borderColor: COLORS.textLight,
     borderRadius: SIZES.radius,
     marginBottom: SIZES.margin,
   },
+  servicesContainer: {
+    maxHeight: 300,
+    marginBottom: SIZES.margin,
+  },
+  serviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.padding / 2,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.background,
+  },
+  serviceName: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    marginLeft: SIZES.margin / 2,
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    marginVertical: SIZES.margin,
+  },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: SIZES.margin,
   },
   modalButton: {
     flex: 1,

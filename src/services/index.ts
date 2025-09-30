@@ -29,6 +29,10 @@ import {
   getRaces,
   login,
   logout,
+  getUsers,
+  createUser,
+  getRoleServices,
+  assignRoleServices,
 } from '../api';
 
 // Hook pour récupérer les élevages
@@ -346,6 +350,49 @@ export const useLogout = () => {
     },
     onError: (error: any) => {
       console.error('Erreur lors de la déconnexion:', error);
+    },
+  });
+};
+
+// Hook pour récupérer les utilisateurs
+export const useUsers = () => {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers().then((res) => res),
+  });
+};
+
+// Hook pour créer un utilisateur
+export const useCreateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+};
+
+// Hook pour récupérer les services d'un rôle
+export const useRoleServices = (roleId: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['roleServices', roleId],
+    queryFn: () => getRoleServices(roleId).then((res) => res),
+    enabled,
+  });
+};
+
+// Hook pour attribuer des services à un rôle
+export const useAssignRoleServices = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: assignRoleServices,
+    onSuccess: (data) => {
+      console.log('Services attribués avec succès:', data);
+      queryClient.invalidateQueries({ queryKey: ['roleServices'] });
+    },
+    onError: (error: any) => {
+      console.error('Erreur lors de l\'attribution des services:', error.response?.data || error);
     },
   });
 };

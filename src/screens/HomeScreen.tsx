@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import { useLogout, useLots, useBassins } from "../services";
+import { useLogout, useLots, useBassins, useRoleServices } from "../services";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/Navigation";
 
@@ -24,6 +24,10 @@ import { RootStackParamList } from "../navigation/Navigation";
 interface UserInfo {
   prenom: string;
   nom: string;
+  role: {
+    code: string;
+    nom: string;
+  };
 }
 
 // Interface pour un lot
@@ -45,16 +49,17 @@ interface Basin {
   nombre?: number;
 }
 
-// Données mock pour les cartes (sauf Total Poulets et Total Poissons, qui seront dynamiques)
+// Données mock pour les cartes
 const summaryDataTemplate = [
-  { title: "Total Poulets", value: "0", unit: "têtes", icon: "egg" },
-  { title: "Total Poissons", value: "0", unit: "têtes", icon: "waves" },
-  { title: "Stocks Critiques", value: "3", unit: "articles", icon: "warning" },
+  { title: "Total Poulets", value: "0", unit: "têtes", icon: "egg", code: "poulets" },
+  { title: "Total Poissons", value: "0", unit: "têtes", icon: "waves", code: "poissons" },
+  { title: "Stocks Critiques", value: "3", unit: "articles", icon: "warning", code: "stocks" },
   {
     title: "Ventes Mois",
     value: "150,000",
     unit: "XAF",
     icon: "shopping-cart",
+    code: "ventes",
   },
 ];
 
@@ -76,6 +81,7 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { mutate: logout } = useLogout();
   const [userInitials, setUserInitials] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>("");
   const {
     data: lots,
     isLoading: isLotsLoading,
@@ -86,6 +92,7 @@ const HomeScreen: React.FC = () => {
     isLoading: isBasinsLoading,
     isError: isBasinsError,
   } = useBassins();
+  const { data: userServices, isLoading: isServicesLoading, isError: isServicesError } = useRoleServices(userRole, !!userRole);
 
   // Calculer le total des poulets
   const totalChickens = lots
@@ -101,53 +108,173 @@ const HomeScreen: React.FC = () => {
   const formattedTotalChickens = totalChickens.toLocaleString("fr-FR");
   const formattedTotalFish = totalFish.toLocaleString("fr-FR");
 
+  // Utiliser roleServices s'il existe, sinon utiliser tous les services disponibles comme secours
+  const effectiveServices = useMemo(() => {
+    if (userServices?.roleServices?.length > 0) {
+      console.log("Services attribués:", userServices.roleServices);
+      return userServices.roleServices;
+    }
+    if (userServices?.services?.length > 0) {
+      const allServices = userServices.services.map((service) => service.code);
+      console.log("Services disponibles (secours):", allServices);
+      return allServices;
+    }
+    console.log("Aucun service disponible");
+    return [];
+  }, [userServices]);
+
+  // Afficher un message si aucun service n'est attribué
+  useEffect(() => {
+    if (userServices && userServices.roleServices.length === 0 && !isServicesLoading) {
+      Toast.show({
+        type: "infoToast",
+        props: {
+          message: "Aucun service attribué. Contactez l'administrateur pour configurer vos accès.",
+        },
+      });
+    }
+  }, [userServices, isServicesLoading]);
+
   // Mettre à jour les données de la carte avec les totaux dynamiques
-  const summaryData = summaryDataTemplate.map((item) => {
-    if (item.title === "Total Poulets") {
-      return {
-        ...item,
-        value: isLotsLoading
-          ? "Chargement..."
-          : isLotsError
-          ? "Erreur"
-          : formattedTotalChickens,
-      };
-    }
-    if (item.title === "Total Poissons") {
-      return {
-        ...item,
-        value: isBasinsLoading
-          ? "Chargement..."
-          : isBasinsError
-          ? "Erreur"
-          : formattedTotalFish,
-      };
-    }
-    return item;
-  });
+  const summaryData = useMemo(
+    () =>
+      summaryDataTemplate
+        .filter((item) => effectiveServices.includes(item.code))
+        .map((item) => {
+          if (item.title === "Total Poulets") {
+            return {
+              ...item,
+              value: isLotsLoading
+                ? "Chargement..."
+                : isLotsError
+                ? "Erreur"
+                : formattedTotalChickens,
+            };
+          }
+          if (item.title === "Total Poissons") {
+            return {
+              ...item,
+              value: isBasinsLoading
+                ? "Chargement..."
+                : isBasinsError
+                ? "Erreur"
+                : formattedTotalFish,
+            };
+          }
+          return item;
+        }),
+    [
+      effectiveServices,
+      isLotsLoading,
+      isLotsError,
+      formattedTotalChickens,
+      isBasinsLoading,
+      isBasinsError,
+      formattedTotalFish,
+    ]
+  );
+
+  // Liste des boutons de navigation rapide
+  const navButtons = useMemo(
+    () =>
+      [
+        {
+          name: "Poulets",
+          icon: "egg",
+          screen: "ChickenManagement",
+          hint: "Navigue vers la gestion des poulets",
+          code: "poulets",
+        },
+        {
+          name: "Poissons",
+          icon: "waves",
+          screen: "FishManagement",
+          hint: "Navigue vers la gestion des poissons",
+          code: "poissons",
+        },
+        {
+          name: "Stocks",
+          icon: "inventory",
+          screen: "StockManagement",
+          hint: "Navigue vers la gestion des stocks",
+          code: "stocks",
+        },
+        {
+          name: "Rapports",
+          icon: "assessment",
+          screen: "Reports",
+          hint: "Navigue vers les rapports",
+          code: "rapports",
+        },
+        {
+          name: "Ventes",
+          icon: "shopping-cart",
+          screen: "SalesTrackingGeneral",
+          hint: "Navigue vers le suivi des ventes",
+          code: "ventes",
+        },
+        {
+          name: "Paramètres",
+          icon: "settings",
+          screen: "Settings",
+          hint: "Navigue vers les paramètres",
+          code: "parametres",
+        },
+        {
+          name: "Sauvegarde",
+          icon: "archive",
+          screen: "Backup",
+          hint: "Navigue vers la gestion des sauvegardes",
+          code: "sauvegarde",
+        },
+        {
+          name: "Tableau Avancé",
+          icon: "dashboard",
+          screen: "AdvancedDashboard",
+          hint: "Navigue vers le tableau de bord avancé",
+          code: "tableau_de_bord",
+        },
+        {
+          name: "Planificateur",
+          icon: "event",
+          screen: "Planner",
+          hint: "Navigue vers le planificateur d’événements",
+          code: "planificateur",
+        },
+        {
+          name: "Galerie",
+          icon: "photo-camera",
+          screen: "PhotoGallery",
+          hint: "Navigue vers la galerie photo",
+          code: "galerie",
+        },
+      ].filter((button) => effectiveServices.includes(button.code)),
+    [effectiveServices]
+  );
 
   // Récupérer les informations utilisateur depuis AsyncStorage
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
         const userData = await AsyncStorage.getItem("userInfo");
-        console.log("Données AsyncStorage userInfo:", userData);
         if (userData) {
           const user: UserInfo = JSON.parse(userData);
-          console.log("Utilisateur parsé:", user);
-          const initials = `${user.prenom.charAt(0)}${user.nom.charAt(
-            0
-          )}`.toUpperCase();
+          const initials = `${user.prenom.charAt(0)}${user.nom.charAt(0)}`.toUpperCase();
           setUserInitials(initials);
-          console.log("Initiales calculées:", initials);
+          setUserRole(user.role.code);
         } else {
           console.warn("Aucune donnée userInfo trouvée dans AsyncStorage");
+          Toast.show({
+            type: "errorToast",
+            props: { message: "Aucune information utilisateur trouvée" },
+          });
         }
       } catch (error) {
-        console.error(
-          "Erreur lors de la récupération des infos utilisateur:",
-          error
-        );
+        console.error("Erreur lors de la récupération des infos utilisateur:", error);
+        Toast.show({
+          type: "errorToast",
+          props: { message: "Erreur lors du chargement des informations utilisateur" },
+        });
       }
     };
     fetchUserInfo();
@@ -159,10 +286,7 @@ const HomeScreen: React.FC = () => {
       "Confirmation",
       "Voulez-vous vous déconnecter ?",
       [
-        {
-          text: "Non",
-          style: "cancel",
-        },
+        { text: "Non", style: "cancel" },
         {
           text: "Oui",
           style: "destructive",
@@ -173,21 +297,14 @@ const HomeScreen: React.FC = () => {
                 onSuccess: () => {
                   Toast.show({
                     type: "successToast",
-                    props: {
-                      title: "Succès",
-                      message: " Déconnexion réussie",
-                    },
+                    props: { message: "Déconnexion réussie" },
                   });
                   navigation.replace("LoginScreen");
                 },
-
                 onError: (error: any) => {
                   Toast.show({
                     type: "errorToast",
-                    props: {
-                      title: "Erreur",
-                      message: "Échec de la déconnexion",
-                    },
+                    props: { message: "Échec de la déconnexion" },
                   });
                   console.error("Erreur de déconnexion:", error);
                 },
@@ -201,8 +318,7 @@ const HomeScreen: React.FC = () => {
   };
 
   // Vérification des données
-  const isDataValid =
-    summaryData.length > 0 && salesChartData.labels.length > 0;
+  const isDataValid = summaryData.length > 0 && salesChartData.labels.length > 0;
 
   // Configuration de l'en-tête
   React.useLayoutEffect(() => {
@@ -232,192 +348,140 @@ const HomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        {/* Section des cartes de résumé */}
-        <View style={styles.summaryContainer}>
-          <Text style={styles.sectionTitle}>Résumé Général</Text>
-          {isDataValid ? (
-            <View style={styles.cardsContainer}>
-              {summaryData.map((item, index) => (
-                <Animatable.View
-                  key={index}
-                  animation="fadeInUp"
-                  delay={index * 100}
-                  style={styles.card}
-                >
-                  <TouchableOpacity
-                    style={styles.cardContent}
-                    onPress={() => {
-                      if (item.title === "Stocks Critiques") {
-                        navigation.navigate("StockManagement");
-                      } else if (item.title === "Total Poulets") {
-                        navigation.navigate("ChickenManagement");
-                      } else if (item.title === "Total Poissons") {
-                        navigation.navigate("FishManagement");
-                      } else if (item.title === "Ventes Mois") {
-                        navigation.navigate("SalesTrackingGeneral");
-                      }
-                    }}
-                    accessibilityLabel={`Voir détails ${item.title}`}
-                    accessibilityHint={`Navigue vers la gestion des ${item.title.toLowerCase()}`}
+      {isServicesLoading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Chargement des services...</Text>
+        </View>
+      ) : isServicesError ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Erreur lors du chargement des services. Veuillez réessayer.
+          </Text>
+        </View>
+      ) : (
+        <ScrollView>
+          {/* Section des cartes de résumé */}
+          <View style={styles.summaryContainer}>
+            <Text style={styles.sectionTitle}>Résumé Général</Text>
+            {isDataValid ? (
+              <View style={styles.cardsContainer}>
+                {summaryData.map((item, index) => (
+                  <Animatable.View
+                    key={index}
+                    animation="fadeInUp"
+                    delay={index * 100}
+                    style={styles.card}
                   >
-                    <Icon
-                      name={item.icon}
-                      size={24}
-                      color={COLORS.accent}
-                      style={styles.cardIcon}
-                    />
-                    <Text style={styles.cardTitle}>{item.title}</Text>
-                    <Text style={styles.cardValue}>{item.value}</Text>
-                    <Text style={styles.cardUnit}>{item.unit}</Text>
-                  </TouchableOpacity>
-                </Animatable.View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.errorText}>
-              Erreur : Données non disponibles
-            </Text>
-          )}
-        </View>
-
-        {/* Section des graphiques */}
-        <View style={styles.chartContainer}>
-          <Text style={styles.sectionTitle}>Ventes (7 jours, XAF)</Text>
-          {isDataValid ? (
-            <Animatable.View animation="bounceIn" duration={1000}>
-              <LineChart
-                data={salesChartData}
-                width={Dimensions.get("window").width - SIZES.padding * 2}
-                height={220}
-                chartConfig={{
-                  backgroundColor: COLORS.white,
-                  backgroundGradientFrom: COLORS.white,
-                  backgroundGradientTo: COLORS.white,
-                  decimalPlaces: 0,
-                  color: () => COLORS.textLight,
-                  labelColor: () => COLORS.text,
-                  style: {
-                    borderRadius: SIZES.radius,
-                  },
-                  propsForDots: {
-                    r: "6",
-                    strokeWidth: "2",
-                    stroke: COLORS.accent,
-                  },
-                }}
-                bezier
-                style={styles.chart}
-              />
-            </Animatable.View>
-          ) : (
-            <Text style={styles.errorText}>
-              Erreur : Données du graphique non disponibles
-            </Text>
-          )}
-        </View>
-
-        {/* Section de navigation rapide */}
-        <View style={styles.navigationContainer}>
-          <Text style={styles.sectionTitle}>Accès Rapide</Text>
-          <View style={styles.navButtonsContainer}>
-            {[
-              {
-                name: "Poulets",
-                icon: "egg",
-                screen: "ChickenManagement",
-                hint: "Navigue vers la gestion des poulets",
-                code: "poulets",
-              },
-              {
-                name: "Poissons",
-                icon: "waves",
-                screen: "FishManagement",
-                hint: "Navigue vers la gestion des poissons",
-                code: "poissons",
-              },
-              {
-                name: "Stocks",
-                icon: "inventory",
-                screen: "StockManagement",
-                hint: "Navigue vers la gestion des stocks",
-                code: "stocks",
-              },
-              {
-                name: "Rapports",
-                icon: "assessment",
-                screen: "Reports",
-                hint: "Navigue vers les rapports",
-                code: "rapports",
-              },
-              {
-                name: "Ventes",
-                icon: "shopping-cart",
-                screen: "SalesTrackingGeneral",
-                hint: "Navigue vers le suivi des ventes",
-                code: "ventes",
-              },
-              {
-                name: "Paramètres",
-                icon: "settings",
-                screen: "Settings",
-                hint: "Navigue vers les paramètres",
-                code: "parametres",
-              },
-              {
-                name: "Sauvegarde",
-                icon: "archive",
-                screen: "Backup",
-                hint: "Navigue vers la gestion des sauvegardes",
-                code: "sauvegarde",
-              },
-              {
-                name: "Tableau Avancé",
-                icon: "dashboard",
-                screen: "AdvancedDashboard",
-                hint: "Navigue vers le tableau de bord avancé",
-                code: "tableau_de_bord",
-              },
-              {
-                name: "Planificateur",
-                icon: "event",
-                screen: "Planner",
-                hint: "Navigue vers le planificateur d’événements",
-                code: "planificateur",
-              },
-              {
-                name: "Galerie",
-                icon: "photo-camera",
-                screen: "PhotoGallery",
-                hint: "Navigue vers la galerie photo",
-                code: "galerie",
-              },
-            ].map((button, index) => (
-              <Animatable.View
-                key={button.name}
-                animation="bounceIn"
-                duration={1000}
-                delay={index * 200}
-              >
-                <TouchableOpacity
-                  style={styles.navButton}
-                  onPress={() => navigation.navigate(button.screen)}
-                  accessibilityLabel={`Aller à ${button.name}`}
-                  accessibilityHint={button.hint}
-                  activeOpacity={0.8}
-                >
-                  <Icon name={button.icon} size={32} color={COLORS.white} />
-                  <Text style={styles.navButtonText}>{button.name}</Text>
-                </TouchableOpacity>
-              </Animatable.View>
-            ))}
+                    <TouchableOpacity
+                      style={styles.cardContent}
+                      onPress={() => {
+                        if (item.title === "Stocks Critiques") {
+                          navigation.navigate("StockManagement");
+                        } else if (item.title === "Total Poulets") {
+                          navigation.navigate("ChickenManagement");
+                        } else if (item.title === "Total Poissons") {
+                          navigation.navigate("FishManagement");
+                        } else if (item.title === "Ventes Mois") {
+                          navigation.navigate("SalesTrackingGeneral");
+                        }
+                      }}
+                      accessibilityLabel={`Voir détails ${item.title}`}
+                      accessibilityHint={`Navigue vers la gestion des ${item.title.toLowerCase()}`}
+                    >
+                      <Icon
+                        name={item.icon}
+                        size={24}
+                        color={COLORS.accent}
+                        style={styles.cardIcon}
+                      />
+                      <Text style={styles.cardTitle}>{item.title}</Text>
+                      <Text style={styles.cardValue}>{item.value}</Text>
+                      <Text style={styles.cardUnit}>{item.unit}</Text>
+                    </TouchableOpacity>
+                  </Animatable.View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.errorText}>
+                Aucun service disponible pour cet utilisateur
+              </Text>
+            )}
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Section des graphiques */}
+          {effectiveServices.includes("ventes") && (
+            <View style={styles.chartContainer}>
+              <Text style={styles.sectionTitle}>Ventes (7 jours, XAF)</Text>
+              {isDataValid ? (
+                <Animatable.View animation="bounceIn" duration={1000}>
+                  <LineChart
+                    data={salesChartData}
+                    width={Dimensions.get("window").width - SIZES.padding * 2}
+                    height={220}
+                    chartConfig={{
+                      backgroundColor: COLORS.white,
+                      backgroundGradientFrom: COLORS.white,
+                      backgroundGradientTo: COLORS.white,
+                      decimalPlaces: 0,
+                      color: () => COLORS.textLight,
+                      labelColor: () => COLORS.text,
+                      style: { borderRadius: SIZES.radius },
+                      propsForDots: {
+                        r: "6",
+                        strokeWidth: "2",
+                        stroke: COLORS.accent,
+                      },
+                    }}
+                    bezier
+                    style={styles.chart}
+                  />
+                </Animatable.View>
+              ) : (
+                <Text style={styles.errorText}>
+                  Erreur : Données du graphique non disponibles
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Section de navigation rapide */}
+          <View style={styles.navigationContainer}>
+            <Text style={styles.sectionTitle}>Accès Rapide</Text>
+            {navButtons.length > 0 ? (
+              <View style={styles.navButtonsContainer}>
+                {navButtons.map((button, index) => (
+                  <Animatable.View
+                    key={button.name}
+                    animation="bounceIn"
+                    duration={1000}
+                    delay={index * 200}
+                  >
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigation.navigate(button.screen)}
+                      accessibilityLabel={`Aller à ${button.name}`}
+                      accessibilityHint={button.hint}
+                      activeOpacity={0.8}
+                    >
+                      <Icon name={button.icon} size={32} color={COLORS.white} />
+                      <Text style={styles.navButtonText}>{button.name}</Text>
+                    </TouchableOpacity>
+                  </Animatable.View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.errorText}>
+                Aucun accès rapide disponible. Veuillez attribuer des services dans les paramètres.
+              </Text>
+            )}
+          </View>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -537,6 +601,21 @@ const styles = StyleSheet.create({
   },
   headerIconContainer: {
     marginRight: SIZES.padding,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

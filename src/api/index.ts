@@ -86,11 +86,37 @@ interface Sale {
   mode_paiement: string;
 }
 
+// Interface pour un utilisateur
+interface User {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  numeroTelephone: string;
+  role: {
+    code: string;
+    nom: string;
+  };
+}
+
+// Interface pour un service
+interface Service {
+  code: string;
+  name: string;
+}
+
+// Interface pour les données des rôles et services
+interface RoleServiceData {
+  roleServices: string[];
+  services: Service[];
+}
+
 // Interface pour la réponse de login
 interface LoginResponse {
   accessToken?: string;
   refreshToken?: string;
   user?: {
+    services: boolean;
     id: string;
     email: string;
     nom: string;
@@ -551,9 +577,95 @@ export const login = async (credentials: {
 export const logout = async () => {
   try {
     await AsyncStorage.removeItem('authToken');
+    await AsyncStorage.removeItem('userInfo');
     return { message: 'Déconnexion réussie' };
   } catch (error) {
     console.error('Erreur lors de la déconnexion:', error);
+    throw error;
+  }
+};
+
+// Récupérer la liste des utilisateurs
+export const getUsers = async () => {
+  const endpoint = '/utilisateurs';
+  try {
+    const res: AxiosResponse<User[]> = await api.get(endpoint);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Créer un utilisateur
+export const createUser = async (user: {
+  nom: string;
+  prenom: string;
+  email: string;
+  password: string;
+  role: string;
+  numeroTelephone: string;
+}) => {
+  const endpoint = '/auth/register';
+  try {
+    const res: AxiosResponse<User> = await api.post(endpoint, user);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Récupérer les services pour un rôle
+export const getRoleServices = async (roleId: string) => {
+  const endpoint = `/role-servive?roleId=${roleId}`;
+  try {
+    const res: AxiosResponse<any> = await api.get(endpoint);
+    const data = res.data;
+
+    // Extraire et parser les services de roleServices
+    let roleServices: string[] = [];
+    if (data.roleServices && Array.isArray(data.roleServices)) {
+      roleServices = data.roleServices
+        .filter((item: any) => item.services)
+        .map((item: any) => {
+          try {
+            // Remplacer les accolades par des crochets pour corriger le format
+            const correctedServices = item.services.replace(/^{/, "[").replace(/}$/, "]");
+            return JSON.parse(correctedServices);
+          } catch (error) {
+            console.error("Erreur lors du parsing des services:", item.services, error);
+            return [];
+          }
+        })
+        .flat(); // Aplatir le tableau de tableaux en un seul tableau
+    }
+
+    console.log("Services parsés:", roleServices);
+
+    return {
+      roleServices,
+      services: Array.isArray(data.services) ? data.services : [],
+    } as RoleServiceData;
+  } catch (error) {
+    console.error(`Erreur lors de l'appel à ${endpoint}:`, error);
+    throw error;
+  }
+};
+
+// Attribuer des services à un rôle
+export const assignRoleServices = async (data: {
+  roleId: string;
+  services: string[];
+}) => {
+  const endpoint = '/role-servive';
+  try {
+    console.log('Envoi des services à l\'API:', data);
+    const res: AxiosResponse = await api.post(endpoint, data);
+    console.log('Réponse de l\'API:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
     throw error;
   }
 };

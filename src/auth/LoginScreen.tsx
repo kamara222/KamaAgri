@@ -17,6 +17,21 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import { useLogin } from "../services";
+import { getRoleServices } from "../api";
+
+// Services par défaut pour ADMIN (solution temporaire)
+const defaultAdminServices = [
+  "poulets",
+  "poissons",
+  "stocks",
+  "ventes",
+  "parametres",
+  "sauvegarde",
+  "tableau_de_bord",
+  "planificateur",
+  "galerie",
+  "rapports",
+];
 
 const { width, height } = Dimensions.get("window");
 
@@ -57,9 +72,7 @@ const LoginScreen = ({ navigation }) => {
     if (!identifiant || !password) {
       Toast.show({
         type: "errorToast",
-        props: {
-          message: "Veuillez remplir tous les champs",
-        },
+        props: { message: "Veuillez remplir tous les champs" },
       });
       return;
     }
@@ -76,12 +89,28 @@ const LoginScreen = ({ navigation }) => {
               console.log("Token stocké:", data.accessToken);
             }
             if (data.user) {
+              // Récupérer les services si non inclus dans la réponse
+              let services: string[] = data.user.services || [];
+              if (!services.length) {
+                try {
+                  const roleServicesData = await getRoleServices(data.user.role.code);
+                  services = roleServicesData.roleServices;
+                  console.log("Services récupérés:", services);
+                } catch (error) {
+                  console.error("Erreur lors de la récupération des services:", error);
+                  // Solution temporaire pour ADMIN
+                  if (data.user.role.code === "ADMIN") {
+                    services = defaultAdminServices;
+                  }
+                }
+              }
               const userInfo = {
                 prenom: data.user.prenom,
                 nom: data.user.nom,
                 email: data.user.email,
                 numeroTelephone: data.user.numeroTelephone,
                 role: data.user.role,
+                services,
               };
               await AsyncStorage.setItem("userInfo", JSON.stringify(userInfo));
               console.log("Informations utilisateur stockées:", userInfo);
@@ -89,9 +118,7 @@ const LoginScreen = ({ navigation }) => {
 
             Toast.show({
               type: "successToast",
-              props: {
-                message: data.message || "Connexion réussie !",
-              },
+              props: { message: data.message || "Connexion réussie !" },
             });
             setIsSubmitting(false);
             navigation.replace("Home");
@@ -99,12 +126,10 @@ const LoginScreen = ({ navigation }) => {
           onError: (error: any) => {
             setIsSubmitting(false);
             console.error("Erreur de connexion:", error.response?.data);
-
             Toast.show({
               type: "errorToast",
               props: {
-                message:
-                  error.response?.data?.message || "Échec de la connexion",
+                message: error.response?.data?.message || "Échec de la connexion",
               },
             });
           },
@@ -113,12 +138,9 @@ const LoginScreen = ({ navigation }) => {
     } catch (error) {
       setIsSubmitting(false);
       console.error("Erreur lors de la gestion de la connexion:", error);
-
       Toast.show({
         type: "errorToast",
-        props: {
-          message: "Une erreur inattendue est survenue",
-        },
+        props: { message: "Une erreur inattendue est survenue" },
       });
     }
   };
