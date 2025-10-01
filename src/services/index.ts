@@ -35,6 +35,9 @@ import {
   getRoleServices,
   assignRoleServices,
   getStats,
+  getEvents,
+  createEvent,
+  deleteEvent,
 } from '../api';
 
 // Hook pour récupérer les élevages
@@ -419,5 +422,35 @@ export const useStats = () => {
   return useQuery({
     queryKey: ['stats'],
     queryFn: () => getStats().then((res) => res),
+  });
+};
+
+// Hook pour récupérer les événements
+export const useEvents = () => {
+  return useQuery({
+    queryKey: ['events'],
+    queryFn: () => getEvents().then((res) => res),
+  });
+};
+
+// Hook pour créer un événement
+export const useCreateEvent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+};
+
+// Hook pour supprimer un événement
+export const useDeleteEvent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
   });
 };

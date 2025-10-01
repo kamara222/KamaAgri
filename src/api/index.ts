@@ -147,6 +147,14 @@ interface Stats {
   };
 }
 
+// Interface pour un événement
+interface Event {
+  id: string;
+  type: string;
+  detail: string;
+  date: string;
+}
+
 export const getEleves = async () => {
   const endpoint = '/eleves';
   try {
@@ -705,6 +713,49 @@ export const getStats = async () => {
   try {
     const res: AxiosResponse<Stats> = await api.get(endpoint);
     console.log('Statistiques récupérées:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Récupérer la liste des événements
+export const getEvents = async () => {
+  const endpoint = '/evenement';
+  try {
+    const res: AxiosResponse<Event[]> = await api.get(endpoint);
+    console.log('Événements récupérés:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Créer un nouvel événement
+export const createEvent = async (event: {
+  type: string;
+  detail: string;
+  date?: string;
+}) => {
+  const endpoint = '/evenement';
+  try {
+    const res: AxiosResponse<Event> = await api.post(endpoint, event);
+    console.log('Événement créé:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
+// Supprimer un événement
+export const deleteEvent = async (id: string) => {
+  const endpoint = `/evenement/${id}`;
+  try {
+    const res: AxiosResponse = await api.delete(endpoint);
+    console.log('Événement supprimé:', id);
     return res.data;
   } catch (error) {
     console.error('API error:', endpoint, error);

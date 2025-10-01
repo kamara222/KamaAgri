@@ -103,14 +103,8 @@ const HomeScreen: React.FC = () => {
   const summaryDataTemplate = [
     { title: "Total Poulets", value: "0", unit: "têtes", icon: "egg", code: "poulets" },
     { title: "Total Poissons", value: "0", unit: "têtes", icon: "waves", code: "poissons" },
-    { title: "Stocks Critiques", value: "3", unit: "articles", icon: "warning", code: "stocks" },
-    {
-      title: "Ventes Mois",
-      value: "0",
-      unit: "XAF",
-      icon: "shopping-cart",
-      code: "ventes",
-    },
+    { title: "Stocks Critiques", value: "0", unit: "articles", icon: "warning", code: "stocks" },
+    { title: "Ventes Mois", value: "0", unit: "XAF", icon: "shopping-cart", code: "ventes" },
   ];
 
   // Utiliser roleServices s'il existe, sinon utiliser tous les services disponibles comme secours
@@ -258,20 +252,7 @@ const HomeScreen: React.FC = () => {
           hint: "Navigue vers la gestion des poissons",
           code: "poissons",
         },
-        {
-          name: "Stocks",
-          icon: "inventory",
-          screen: "StockManagement",
-          hint: "Navigue vers la gestion des stocks",
-          code: "stocks",
-        },
-        {
-          name: "Rapports",
-          icon: "assessment",
-          screen: "Reports",
-          hint: "Navigue vers les rapports",
-          code: "rapports",
-        },
+        
         {
           name: "Ventes",
           icon: "shopping-cart",
@@ -287,20 +268,6 @@ const HomeScreen: React.FC = () => {
           code: "parametres",
         },
         {
-          name: "Sauvegarde",
-          icon: "archive",
-          screen: "Backup",
-          hint: "Navigue vers la gestion des sauvegardes",
-          code: "sauvegarde",
-        },
-        {
-          name: "Tableau Avancé",
-          icon: "dashboard",
-          screen: "AdvancedDashboard",
-          hint: "Navigue vers le tableau de bord avancé",
-          code: "tableau_de_bord",
-        },
-        {
           name: "Planificateur",
           icon: "event",
           screen: "Planner",
@@ -313,6 +280,34 @@ const HomeScreen: React.FC = () => {
           screen: "PhotoGallery",
           hint: "Navigue vers la galerie photo",
           code: "galerie",
+        },
+        {
+          name: "Sauvegarde",
+          icon: "archive",
+          screen: "Backup",
+          hint: "Navigue vers la gestion des sauvegardes",
+          code: "sauvegarde",
+        },
+        {
+          name: "Stocks",
+          icon: "inventory",
+          screen: "StockManagement",
+          hint: "Navigue vers la gestion des stocks",
+          code: "stocks",
+        },
+        {
+          name: "Rapports",
+          icon: "assessment",
+          screen: "Reports",
+          hint: "Navigue vers les rapports",
+          code: "rapports",
+        },
+        {
+          name: "Tableau Avancé",
+          icon: "dashboard",
+          screen: "AdvancedDashboard",
+          hint: "Navigue vers le tableau de bord avancé",
+          code: "tableau_de_bord",
         },
       ].filter((button) => effectiveServices.includes(button.code)),
     [effectiveServices]

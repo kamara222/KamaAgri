@@ -1,4 +1,3 @@
-// src/screens/PlannerScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -16,50 +15,28 @@ import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import CustomSelect from '../components/CustomSelect';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
+import { useEvents, useCreateEvent, useDeleteEvent } from '../services';
+import Toast from 'react-native-toast-message';
 
-// Données mock pour les événements et lots/bassins (à remplacer par API)
-const mockEvents = [
-  {
-    id: '1',
-    type: 'vaccination',
-    date: '2025-05-15',
-    details: 'Vaccination contre la grippe aviaire',
-    target: 'Lot A1',
-  },
-  {
-    id: '2',
-    type: 'traitement',
-    date: '2025-05-16',
-    details: 'Traitement antibiotique',
-    target: 'Bassin 1',
-  },
-];
-
-const mockTargets = [
-  { label: 'Lot A1', value: 'Lot A1' },
-  { label: 'Lot B2', value: 'Lot B2' },
-  { label: 'Bassin 1', value: 'Bassin 1' },
-];
-
-// Types pour un événement
+// Interface pour un événement
 interface Event {
   id: string;
   type: string;
+  detail: string;
   date: string;
-  details: string;
-  target: string;
 }
 
 const PlannerScreen: React.FC = () => {
-  const [events, setEvents] = useState<Event[]>(mockEvents);
+  const { data: events, isLoading, isError } = useEvents();
+  const { mutate: createEvent } = useCreateEvent();
+  const { mutate: deleteEvent } = useDeleteEvent();
   const [filterType, setFilterType] = useState('');
   const [isModalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [newEvent, setNewEvent] = useState({
     type: 'vaccination',
     date: new Date(),
-    details: '',
-    target: mockTargets[0].value,
+    detail: '',
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -72,44 +49,51 @@ const PlannerScreen: React.FC = () => {
   ];
 
   // Filtrer les événements
-  const filteredEvents = events.filter(
+  const filteredEvents = events?.filter(
     (event) => !filterType || event.type === filterType
-  );
+  ) || [];
 
   // Ajouter ou modifier un événement
   const handleSaveEvent = () => {
-    if (!newEvent.details || !newEvent.target) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs.', [
+    if (!newEvent.detail) {
+      Alert.alert('Erreur', 'Veuillez remplir le champ détails.', [
         { text: 'OK', style: 'cancel' },
       ]);
       return;
     }
 
     const eventData = {
-      id: editingEvent ? editingEvent.id : (events.length + 1).toString(),
       type: newEvent.type,
+      detail: newEvent.detail,
       date: newEvent.date.toISOString().split('T')[0],
-      details: newEvent.details,
-      target: newEvent.target,
     };
 
-    if (editingEvent) {
-      setEvents(events.map((e) => (e.id === editingEvent.id ? eventData : e)));
-    } else {
-      setEvents([...events, eventData]);
-    }
-    setModalVisible(false);
-    setNewEvent({
-      type: 'vaccination',
-      date: new Date(),
-      details: '',
-      target: mockTargets[0].value,
+    createEvent(eventData, {
+      onSuccess: () => {
+        Toast.show({
+          type: 'successToast',
+          props: { message: editingEvent ? 'Événement modifié avec succès' : 'Événement créé avec succès' },
+        });
+        setModalVisible(false);
+        setNewEvent({
+          type: 'vaccination',
+          date: new Date(),
+          detail: '',
+        });
+        setEditingEvent(null);
+      },
+      onError: (error: any) => {
+        Toast.show({
+          type: 'errorToast',
+          props: { message: 'Erreur lors de l\'enregistrement de l\'événement' },
+        });
+        console.error('Erreur lors de l\'enregistrement:', error);
+      },
     });
-    setEditingEvent(null);
   };
 
   // Supprimer un événement
-  const deleteEvent = (id: string) => {
+  const handleDeleteEvent = (id: string) => {
     Alert.alert(
       'Supprimer l’événement',
       'Voulez-vous supprimer cet événement ?',
@@ -119,10 +103,21 @@ const PlannerScreen: React.FC = () => {
           text: 'Supprimer',
           style: 'destructive',
           onPress: () => {
-            setEvents(events.filter((e) => e.id !== id));
-            Alert.alert('Succès', 'Événement supprimé.', [
-              { text: 'OK', style: 'cancel' },
-            ]);
+            deleteEvent(id, {
+              onSuccess: () => {
+                Toast.show({
+                  type: 'successToast',
+                  props: { message: 'Événement supprimé avec succès' },
+                });
+              },
+              onError: (error: any) => {
+                Toast.show({
+                  type: 'errorToast',
+                  props: { message: 'Erreur lors de la suppression de l\'événement' },
+                });
+                console.error('Erreur lors de la suppression:', error);
+              },
+            });
           },
         },
       ]
@@ -165,7 +160,7 @@ const PlannerScreen: React.FC = () => {
         />
         <View style={styles.cardText}>
           <View style={styles.cardTitleContainer}>
-            <Text style={styles.cardTitle}>{item.target}</Text>
+            <Text style={styles.cardTitle}>{item.type.toUpperCase()}</Text>
             <View
               style={[
                 styles.typeBadge,
@@ -176,19 +171,18 @@ const PlannerScreen: React.FC = () => {
             </View>
           </View>
           <Text style={styles.cardDetail}>Date: {item.date}</Text>
-          <Text style={styles.cardDetail}>Détails: {item.details}</Text>
+          <Text style={styles.cardDetail}>Détails: {item.detail}</Text>
         </View>
       </View>
       <View style={styles.cardActions}>
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.actionButton}
           onPress={() => {
             setEditingEvent(item);
             setNewEvent({
               type: item.type,
               date: new Date(item.date),
-              details: item.details,
-              target: item.target,
+              detail: item.detail,
             });
             setModalVisible(true);
           }}
@@ -196,10 +190,10 @@ const PlannerScreen: React.FC = () => {
           accessibilityHint="Ouvre le formulaire pour modifier cet événement"
         >
           <Icon name="edit" size={24} color={COLORS.accent} />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => deleteEvent(item.id)}
+          onPress={() => handleDeleteEvent(item.id)}
           accessibilityLabel="Supprimer l’événement"
           accessibilityHint="Supprime cet événement du planificateur"
         >
@@ -228,15 +222,25 @@ const PlannerScreen: React.FC = () => {
       </View>
 
       {/* Liste des événements */}
-      <FlatList
-        data={filteredEvents}
-        renderItem={renderEventItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>Aucun événement planifié</Text>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Chargement des événements...</Text>
+        </View>
+      ) : isError ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Erreur lors du chargement des événements.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredEvents}
+          renderItem={renderEventItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>Aucun événement planifié</Text>
+          }
+        />
+      )}
 
       {/* Bouton d’ajout */}
       <Animatable.View animation="pulse" duration={2000} iterationCount="infinite">
@@ -247,8 +251,7 @@ const PlannerScreen: React.FC = () => {
             setNewEvent({
               type: 'vaccination',
               date: new Date(),
-              details: '',
-              target: mockTargets[0].value,
+              detail: '',
             });
             setModalVisible(true);
           }}
@@ -298,23 +301,10 @@ const PlannerScreen: React.FC = () => {
               }}
             />
           )}
-          <Picker
-            selectedValue={newEvent.target}
-            onValueChange={(value) => setNewEvent({ ...newEvent, target: value })}
-            style={styles.picker}
-          >
-            {mockTargets.map((target) => (
-              <Picker.Item
-                key={target.value}
-                label={target.label}
-                value={target.value}
-              />
-            ))}
-          </Picker>
           <TextInput
             style={styles.input}
-            value={newEvent.details}
-            onChangeText={(text) => setNewEvent({ ...newEvent, details: text })}
+            value={newEvent.detail}
+            onChangeText={(text) => setNewEvent({ ...newEvent, detail: text })}
             placeholder="Détails"
             multiline
             numberOfLines={4}
@@ -520,6 +510,28 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontMedium,
     fontFamily: FONTS.regular,
     color: COLORS.textLight,
+    textAlign: 'center',
+    marginTop: SIZES.margin,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.error,
     textAlign: 'center',
     marginTop: SIZES.margin,
   },

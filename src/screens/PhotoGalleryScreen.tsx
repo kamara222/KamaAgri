@@ -1,4 +1,3 @@
-// src/screens/PhotoGalleryScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -15,10 +14,12 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CustomSelect from '../components/CustomSelect';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import uuid from 'react-native-uuid';
+import Toast from 'react-native-toast-message';
 
 // Interface pour une photo
 interface Photo {
@@ -50,10 +51,27 @@ const PhotoGalleryScreen: React.FC = () => {
       try {
         const storedPhotos = await AsyncStorage.getItem('photos');
         if (storedPhotos) {
-          setPhotos(JSON.parse(storedPhotos));
+          const parsedPhotos = JSON.parse(storedPhotos);
+          // Vérifier l'existence des fichiers
+          const validPhotos = await Promise.all(
+            parsedPhotos.map(async (photo: Photo) => {
+              try {
+                const fileInfo = await FileSystem.getInfoAsync(photo.uri);
+                return fileInfo.exists ? photo : null;
+              } catch (error) {
+                console.error(`Erreur lors de la vérification du fichier ${photo.uri}:`, error);
+                return null;
+              }
+            })
+          );
+          setPhotos(validPhotos.filter((photo): photo is Photo => photo !== null));
         }
       } catch (error) {
         console.error('Erreur lors du chargement des photos:', error);
+        Toast.show({
+          type: 'errorToast',
+          props: { message: 'Erreur lors du chargement des photos' },
+        });
       }
     };
     loadPhotos();
@@ -64,8 +82,16 @@ const PhotoGalleryScreen: React.FC = () => {
     try {
       await AsyncStorage.setItem('photos', JSON.stringify(updatedPhotos));
       setPhotos(updatedPhotos);
+      Toast.show({
+        type: 'successToast',
+        props: { message: 'Photos sauvegardées avec succès' },
+      });
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des photos:', error);
+      Toast.show({
+        type: 'errorToast',
+        props: { message: 'Erreur lors de la sauvegarde des photos' },
+      });
     }
   };
 
@@ -73,16 +99,17 @@ const PhotoGalleryScreen: React.FC = () => {
   const requestPermissions = async () => {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
     const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    return cameraStatus === 'granted' && libraryStatus === 'granted';
+    if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
+      Alert.alert('Erreur', 'Permissions caméra ou galerie non accordées.');
+      return false;
+    }
+    return true;
   };
 
   // Ajouter une photo
   const addPhoto = async (source: 'camera' | 'library') => {
     const hasPermission = await requestPermissions();
-    if (!hasPermission) {
-      Alert.alert('Erreur', 'Permissions caméra ou galerie non accordées.');
-      return;
-    }
+    if (!hasPermission) return;
 
     let result;
     if (source === 'camera') {
@@ -98,8 +125,26 @@ const PhotoGalleryScreen: React.FC = () => {
     }
 
     if (!result.canceled && result.assets?.[0]?.uri) {
-      setNewPhotoUri(result.assets[0].uri);
-      setIsAddModalVisible(true);
+      try {
+        // Déplacer le fichier vers un répertoire persistant
+        const fileName = `${uuid.v4()}.jpg`;
+        const newUri = `${FileSystem.documentDirectory}photos/${fileName}`;
+        await FileSystem.makeDirectoryAsync(`${FileSystem.documentDirectory}photos`, {
+          intermediates: true,
+        });
+        await FileSystem.moveAsync({
+          from: result.assets[0].uri,
+          to: newUri,
+        });
+        setNewPhotoUri(newUri);
+        setIsAddModalVisible(true);
+      } catch (error) {
+        console.error('Erreur lors du déplacement de la photo:', error);
+        Toast.show({
+          type: 'errorToast',
+          props: { message: 'Erreur lors de l\'ajout de la photo' },
+        });
+      }
     }
   };
 
@@ -135,8 +180,25 @@ const PhotoGalleryScreen: React.FC = () => {
           text: 'Supprimer',
           style: 'destructive',
           onPress: async () => {
-            const updatedPhotos = photos.filter((photo) => photo.id !== id);
-            await savePhotos(updatedPhotos);
+            const photo = photos.find((p) => p.id === id);
+            if (photo) {
+              try {
+                // Supprimer le fichier du stockage
+                await FileSystem.deleteAsync(photo.uri, { idempotent: true });
+                const updatedPhotos = photos.filter((p) => p.id !== id);
+                await savePhotos(updatedPhotos);
+                Toast.show({
+                  type: 'successToast',
+                  props: { message: 'Photo supprimée avec succès' },
+                });
+              } catch (error) {
+                console.error('Erreur lors de la suppression de la photo:', error);
+                Toast.show({
+                  type: 'errorToast',
+                  props: { message: 'Erreur lors de la suppression de la photo' },
+                });
+              }
+            }
           },
         },
       ]
@@ -278,7 +340,15 @@ const PhotoGalleryScreen: React.FC = () => {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: COLORS.textLight }]}
-                onPress={() => {
+                onPress={async () => {
+                  // Supprimer le fichier temporaire si l'utilisateur annule
+                  if (newPhotoUri) {
+                    try {
+                      await FileSystem.deleteAsync(newPhotoUri, { idempotent: true });
+                    } catch (error) {
+                      console.error('Erreur lors de la suppression du fichier temporaire:', error);
+                    }
+                  }
                   setIsAddModalVisible(false);
                   setNewPhotoUri('');
                 }}
