@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "KamAgri",
-    "slug": "KamAgri",
+    "name": "AquaFerme Pro",
+    "slug": "AquaFerme Pro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Logo1.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
