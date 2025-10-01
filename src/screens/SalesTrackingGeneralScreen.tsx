@@ -8,12 +8,14 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { useNavigation } from '@react-navigation/native';
 import CustomSelect from '../components/CustomSelect';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import { useStats, useChickenSales, useFishSales } from '../services';
@@ -45,11 +47,13 @@ interface Sale {
 }
 
 const SalesTrackingGeneralScreen: React.FC = () => {
+  const navigation = useNavigation();
   const { data: stats, isLoading: isStatsLoading, isError: isStatsError } = useStats();
   const { data: chickenSales, isLoading: isChickenSalesLoading, isError: isChickenSalesError } = useChickenSales();
   const { data: fishSales, isLoading: isFishSalesLoading, isError: isFishSalesError } = useFishSales();
   const [filterType, setFilterType] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('mois');
+  const [showSellModal, setShowSellModal] = useState(false);
 
   // Options pour les filtres
   const typeOptions = [
@@ -122,6 +126,16 @@ const SalesTrackingGeneralScreen: React.FC = () => {
     };
   }, [stats, filterType]);
 
+  // Gérer la navigation pour la vente
+  const handleSellNavigation = (type: 'chicken' | 'fish') => {
+    setShowSellModal(false);
+    if (type === 'chicken') {
+      navigation.navigate('SalesTracking'); // Remplacez par le nom exact de votre route
+    } else {
+      navigation.navigate('FishSalesTracking'); // Remplacez par le nom exact de votre route
+    }
+  };
+
   // Générer le contenu HTML pour le PDF
   const generatePDFContent = () => {
     if (!stats || (!chickenSales && !fishSales)) {
@@ -132,7 +146,7 @@ const SalesTrackingGeneralScreen: React.FC = () => {
       .map(
         (sale) => `
         <tr>
-          <td>${sale.id}</td>
+          <!--<td>${sale.id}</td>-->
           <td>${sale.type}</td>
           <td>${sale.amount.toLocaleString('fr-FR')} XAF</td>
           <td>${new Date(sale.date).toLocaleDateString('fr-FR')}</td>
@@ -171,13 +185,13 @@ const SalesTrackingGeneralScreen: React.FC = () => {
           <h2>Détails des Ventes</h2>
           <table>
             <tr>
-              <th>ID</th>
+              <!--<th>ID</th>-->
               <th>Type</th>
               <th>Montant</th>
               <th>Date</th>
               <th>Lot/Bassin</th>
             </tr>
-            ${salesTable || '<tr><td colspan="5">Aucune vente disponible</td></tr>'}
+            ${salesTable || '<tr><td colspan="4">Aucune vente disponible</td></tr>'}
           </table>
           <h2>Récapitulatif</h2>
           <p>${totalSales}</p>
@@ -196,7 +210,7 @@ const SalesTrackingGeneralScreen: React.FC = () => {
       return;
     }
     if (isChickenSalesError || isFishSalesError || isStatsError) {
-      Alert.alert('Erreur', 'Impossible de charger les données pour l’exportation.', [
+      Alert.alert('Erreur', 'Impossible de charger les données pour lexportation.', [
         { text: 'OK', style: 'cancel' },
       ]);
       return;
@@ -221,8 +235,8 @@ const SalesTrackingGeneralScreen: React.FC = () => {
         ]);
       }
     } catch (error) {
-      console.error('Erreur lors de l’exportation:', error);
-      Alert.alert('Erreur', 'Impossible d’exporter le rapport.', [
+      console.error('Erreur lors de lexportation:', error);
+      Alert.alert('Erreur', 'Impossible d\'exporter le rapport.', [
         { text: 'OK', style: 'cancel' },
       ]);
     }
@@ -264,7 +278,7 @@ const SalesTrackingGeneralScreen: React.FC = () => {
         <Text style={styles.headerTitle}>Suivi des Ventes</Text>
       </Animatable.View>
 
-      {/* Filtres */}
+      {/* Filtres et Bouton Vendre */}
       <View style={styles.filtersContainer}>
         <CustomSelect
           options={typeOptions}
@@ -280,9 +294,65 @@ const SalesTrackingGeneralScreen: React.FC = () => {
           placeholder="Période"
           style={styles.filterSelect}
         />
+        <TouchableOpacity
+          style={styles.sellButton}
+          onPress={() => setShowSellModal(true)}
+          accessibilityLabel="Vendre"
+          accessibilityHint="Ouvre le menu pour vendre des poulets ou poissons"
+        >
+          <View style={styles.sellButtonContent}>
+            <Text style={styles.sellButtonText}>Vendre</Text>
+          <Icon name="add-shopping-cart" size={24} color={COLORS.white} />
+          </View>
+        </TouchableOpacity>
       </View>
 
-      {/* Bouton d’exportation */}
+      {/* Modal de sélection Vendre */}
+      <Modal
+        visible={showSellModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSellModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSellModal(false)}
+        >
+          <Animatable.View
+            animation="zoomIn"
+            duration={300}
+            style={styles.modalContent}
+          >
+            <Text style={styles.modalTitle}>Que souhaitez-vous vendre ?</Text>
+            
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => handleSellNavigation('chicken')}
+            >
+              <Icon name="egg" size={32} color={COLORS.accent} />
+              <Text style={styles.modalOptionText}>Poulets</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => handleSellNavigation('fish')}
+            >
+              <Icon name="waves" size={32} color={COLORS.accent} />
+              <Text style={styles.modalOptionText}>Poissons</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowSellModal(false)}
+            >
+              <Text style={styles.modalCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </Animatable.View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Bouton d'exportation */}
       <TouchableOpacity
         style={styles.exportButton}
         onPress={exportSales}
@@ -380,11 +450,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: SIZES.padding,
     backgroundColor: COLORS.white,
+    alignItems: 'center',
+    gap: SIZES.margin / 1,
+    // justifyContent: 'center'
   },
   filterSelect: {
     flex: 1,
     marginHorizontal: SIZES.margin / 2,
     padding: SIZES.padding / 2,
+  },
+  sellButton: {
+    backgroundColor: COLORS.accent,
+    padding: SIZES.padding / 15,
+    borderRadius: SIZES.radius,
+    marginLeft: SIZES.margin / 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+    height: 50,
+    top: -5,
+  },
+  sellButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sellButtonText: {
+    color: COLORS.white,
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.medium,
+    marginRight: SIZES.margin / 4,
   },
   exportButton: {
     flexDirection: 'row',
@@ -471,6 +566,58 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textAlign: 'center',
     marginVertical: SIZES.margin,
+  },
+  // Styles pour la modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius * 2,
+    padding: SIZES.padding * 2,
+    width: '80%',
+    maxWidth: 400,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: SIZES.fontLarge,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SIZES.margin * 2,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    padding: SIZES.padding * 1.5,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.margin,
+    borderWidth: 1,
+    borderColor: COLORS.textLight,
+  },
+  modalOptionText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+    marginLeft: SIZES.margin,
+  },
+  modalCancelButton: {
+    marginTop: SIZES.margin,
+    padding: SIZES.padding,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.regular,
+    color: COLORS.textLight,
   },
 });
 
