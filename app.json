@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AquaFerme Pro",
-    "slug": "AquaFerme Pro",
+    "name": "AquaFerme_Pro",
+    "slug": "AquaFerme_Pro",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logo1.png",
