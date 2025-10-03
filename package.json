@@ -14,14 +14,16 @@
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.4.1",
     "@react-native-picker/picker": "2.11.1",
-    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/elements": "^2.6.4",
+    "@react-navigation/native": "^7.1.17",
     "@react-navigation/native-stack": "^7.3.26",
-    "@react-navigation/stack": "^6.3.20",
-    "@shopify/react-native-skia": "v2.0.0-next.4",
+    "@react-navigation/stack": "^7.4.8",
+    "@shopify/react-native-skia": "^2.3.0",
     "@tanstack/react-query": "^5.76.2",
     "axios": "^1.9.0",
     "axios-retry": "^4.5.0",
     "expo": "~53.0.23",
+    "expo-asset": "~11.1.7",
     "expo-document-picker": "~13.1.6",
     "expo-file-system": "~18.1.11",
     "expo-font": "~13.3.2",
@@ -30,7 +32,7 @@
     "expo-print": "~14.1.4",
     "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
-    "lottie-react-native": "^7.2.2",
+    "lottie-react-native": "7.2.2",
     "prop-types": "^15.8.1",
     "react": "19.0.0",
     "react-native": "0.79.5",
@@ -46,7 +48,7 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "react-native-svg": "^15.11.2",
+    "react-native-svg": "15.11.2",
     "react-native-toast-message": "^2.3.0",
     "react-native-uuid": "^2.0.3",
     "react-native-vector-icons": "^10.2.0",
@@ -57,7 +59,7 @@
     "@types/react": "~19.0.10",
     "typescript": "~5.8.3"
   },
-   "expo": {
+  "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {
         "exclude": [
@@ -67,6 +69,9 @@
           "react-native-vector-icons"
         ]
       }
+    },
+     "install": {
+      "exclude": ["@shopify/react-native-skia"]
     }
   },
   "private": true
