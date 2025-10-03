@@ -54,6 +54,7 @@ const SettingsScreen: React.FC = () => {
     role: 'OPER',
     numeroTelephone: '',
   });
+  const [lastCreatedUserId, setLastCreatedUserId] = useState<string | null>(null);
 
   // États pour la gestion des rôles et services
   const [isRoleServiceModalVisible, setRoleServiceModalVisible] = useState(false);
@@ -70,13 +71,16 @@ const SettingsScreen: React.FC = () => {
     !!selectedUser
   );
 
-  // Synchroniser selectedServices avec roleServicesData.roleServices
+  // Synchroniser selectedServices avec roleServicesData.roleServices, sauf pour les nouveaux utilisateurs
   useEffect(() => {
-    if (roleServicesData?.roleServices && !isServicesLoading) {
-      console.log('Mise à jour de selectedServices:', roleServicesData.roleServices);
+    if (roleServicesData?.roleServices && !isServicesLoading && selectedUser?.id !== lastCreatedUserId) {
+      console.log('Mise à jour de selectedServices pour le rôle', selectedUser?.role.code, ':', roleServicesData.roleServices);
       setSelectedServices(roleServicesData.roleServices);
+    } else if (selectedUser?.id === lastCreatedUserId) {
+      console.log('Nouvel utilisateur détecté, selectedServices reste vide:', []);
+      setSelectedServices([]);
     }
-  }, [roleServicesData, isServicesLoading]);
+  }, [roleServicesData, isServicesLoading, selectedUser?.id, selectedUser?.role.code, lastCreatedUserId]);
 
   // Options des rôles
   const roles = [
@@ -98,7 +102,7 @@ const SettingsScreen: React.FC = () => {
     }
 
     try {
-      await createUserMutation.mutateAsync({
+      const response = await createUserMutation.mutateAsync({
         nom: newUser.nom,
         prenom: newUser.prenom,
         email: newUser.email,
@@ -106,6 +110,10 @@ const SettingsScreen: React.FC = () => {
         role: newUser.role,
         numeroTelephone: newUser.numeroTelephone,
       });
+
+      // Supposons que l'API renvoie l'ID du nouvel utilisateur dans response.id
+      setLastCreatedUserId(response.id);
+      console.log('Nouvel utilisateur créé avec ID:', response.id);
 
       Toast.show({
         type: 'successToast',
@@ -146,6 +154,9 @@ const SettingsScreen: React.FC = () => {
                 type: 'successToast',
                 props: { message: 'Utilisateur supprimé avec succès.' },
               });
+              if (user.id === lastCreatedUserId) {
+                setLastCreatedUserId(null);
+              }
             } catch (error: any) {
               console.error('Erreur lors de la suppression:', error);
               Toast.show({
@@ -177,6 +188,9 @@ const SettingsScreen: React.FC = () => {
       setRoleServiceModalVisible(false);
       setSelectedUser(null);
       setSelectedServices([]);
+      if (selectedUser.id === lastCreatedUserId) {
+        setLastCreatedUserId(null);
+      }
     } catch (error: any) {
       console.error('Erreur lors de l\'attribution:', error);
       Toast.show({
@@ -219,8 +233,9 @@ const SettingsScreen: React.FC = () => {
           style={styles.assignButton}
           onPress={() => {
             setSelectedUser(item);
+            setSelectedServices([]); // Réinitialiser les services sélectionnés
             setRoleServiceModalVisible(true);
-            console.log('Utilisateur sélectionné:', item);
+            console.log('Utilisateur sélectionné pour attribution de services:', item.id, item.role.code);
           }}
         >
           <Icon name="settings" size={20} color={COLORS.white} />
@@ -393,12 +408,12 @@ const SettingsScreen: React.FC = () => {
           
           {selectedUser && (
             <Text style={styles.modalSubtitle}>
-              Utilisateur: {selectedUser.prenom} {selectedUser.nom}
+              Utilisateur: {selectedUser.prenom} {selectedUser.nom} (Rôle: {selectedUser.role.nom})
             </Text>
           )}
 
           {isServicesLoading ? (
-            <Text style={styles.loadingText}>Chargement des services...</Text>
+            <Text style={styles.loadingText}>Chargement des services pour le rôle {selectedUser?.role.code}...</Text>
           ) : (
             <ScrollView style={styles.servicesContainer}>
               {(roleServicesData?.services || []).map((service) => (
