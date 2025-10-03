@@ -252,7 +252,6 @@ const HomeScreen: React.FC = () => {
           hint: "Navigue vers la gestion des poissons",
           code: "poissons",
         },
-        
         {
           name: "Ventes",
           icon: "shopping-cart",
@@ -423,7 +422,9 @@ const HomeScreen: React.FC = () => {
         <ScrollView>
           {/* Section des cartes de résumé */}
           <View style={styles.summaryContainer}>
-            <Text style={styles.sectionTitle}>Résumé Général</Text>
+            {summaryData.length > 0 && (
+              <Text style={styles.sectionTitle}>Résumé Général</Text>
+            )}
             {isDataValid ? (
               <View style={styles.cardsContainer}>
                 {summaryData.map((item, index) => (
@@ -463,9 +464,10 @@ const HomeScreen: React.FC = () => {
                 ))}
               </View>
             ) : (
-              <Text style={styles.errorText}>
-                Aucun service disponible pour cet utilisateur
-              </Text>
+              // <Text style={styles.errorText}>
+              //   Aucun service disponible pour cet utilisateur
+              // </Text>
+              <></>
             )}
           </View>
 
@@ -544,9 +546,10 @@ const HomeScreen: React.FC = () => {
                 ))}
               </View>
             ) : (
-              <Text style={styles.errorText}>
-                Aucun accès rapide disponible. Veuillez attribuer des services dans les paramètres.
-              </Text>
+              // <Text style={styles.errorText}>
+              //   Aucun accès rapide disponible. Veuillez attribuer des services dans les paramètres.
+              // </Text>
+              <></>
             )}
           </View>
         </ScrollView>
