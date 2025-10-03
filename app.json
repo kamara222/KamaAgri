@@ -8,7 +8,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/LogoKamagri.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,11 +17,12 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Cette application utilise la caméra pour prendre des photos.",
         "NSPhotoLibraryUsageDescription": "Cette application accède à votre galerie pour sélectionner des photos."
-      }
+      },
+      "bundleIdentifier": "com.kamcenter.aquafermepro"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/LogoKamagri.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,

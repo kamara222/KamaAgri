@@ -104,7 +104,7 @@ const HomeScreen: React.FC = () => {
     { title: "Total Poulets", value: "0", unit: "têtes", icon: "egg", code: "poulets" },
     { title: "Total Poissons", value: "0", unit: "têtes", icon: "waves", code: "poissons" },
     { title: "Stocks Critiques", value: "0", unit: "articles", icon: "warning", code: "stocks" },
-    { title: "Ventes Mois", value: "0", unit: "XAF", icon: "shopping-cart", code: "ventes" },
+    { title: "Ventes Mois", value: "0", unit: "XOF", icon: "shopping-cart", code: "ventes" },
   ];
 
   // Utiliser roleServices s'il existe, sinon utiliser tous les services disponibles comme secours
@@ -475,7 +475,7 @@ const HomeScreen: React.FC = () => {
           {effectiveServices.includes("ventes") && (
             <View style={styles.chartContainer}>
               <View style={styles.chartHeader}>
-                <Text style={styles.sectionTitle}>Ventes (7 jours, XAF)</Text>
+                <Text style={styles.sectionTitle}>Ventes (7 jours, XOF)</Text>
                 <CustomSelect
                   options={typeOptions}
                   value={filterType}
