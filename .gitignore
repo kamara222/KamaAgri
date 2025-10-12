@@ -35,3 +35,10 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Native build folders to ignore
+/android/
+/ios/
+
+# Json files
+school-app-push-2-firebase-adminsdk-fbsvc-57b09c315e.json

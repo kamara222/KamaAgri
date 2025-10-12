@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "953216525807",
+    "project_id": "school-app-push-2",
+    "storage_bucket": "school-app-push-2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:953216525807:android:b28bfc17d4a2c43819821a",
+        "android_client_info": {
+          "package_name": "com.kamcenter.KamAgri"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArzxWspMC2qglUeAM8RDJ4RiEguv0NT0Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:953216525807:android:63f1427c8c77c60419821a",
+        "android_client_info": {
+          "package_name": "com.kamcenter.aquafermepro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArzxWspMC2qglUeAM8RDJ4RiEguv0NT0Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:953216525807:android:11e8bcfbe1abdc2719821a",
+        "android_client_info": {
+          "package_name": "com.yourname.schoolapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArzxWspMC2qglUeAM8RDJ4RiEguv0NT0Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

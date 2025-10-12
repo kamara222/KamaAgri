@@ -21,6 +21,7 @@
       "bundleIdentifier": "com.kamcenter.aquafermepro"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/LogoKamagri.png",
         "backgroundColor": "#ffffff"
