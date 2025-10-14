@@ -653,6 +653,18 @@ export const deleteUser = async (id: string) => {
   }
 };
 
+// Mettre à jour le FCM token de l'utilisateur
+export const updateUserFcmToken = async (id: string, fcmtoken: string) => {
+  const endpoint = `/utilisateurs/${id}`;
+  try {
+    const res: AxiosResponse<User> = await api.patch(endpoint, { fcmtoken });
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
 // Récupérer les services pour un rôle
 export const getRoleServices = async (roleId: string) => {
   const endpoint = `/role-servive?roleId=${roleId}`;

@@ -16,8 +16,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import { useLogin } from "../services";
+import { useLogin, useUpdateUserFcmToken } from "../services";
 import { getRoleServices } from "../api";
+import messaging from '@react-native-firebase/messaging';
 
 // Services par défaut pour ADMIN (solution temporaire)
 const defaultAdminServices = [
@@ -46,6 +47,7 @@ const LoginScreen = ({ navigation }) => {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   const { mutate: login } = useLogin();
+  const { mutate: updateUserFcmToken } = useUpdateUserFcmToken();
 
   useEffect(() => {
     // Animation d'entrée
@@ -114,6 +116,33 @@ const LoginScreen = ({ navigation }) => {
               };
               await AsyncStorage.setItem("userInfo", JSON.stringify(userInfo));
               console.log("Informations utilisateur stockées:", userInfo);
+
+              // Mettre à jour le FCM token
+              try {
+                const fcmToken = await messaging().getToken();
+                console.log("FCM Token:", fcmToken);
+                await updateUserFcmToken(
+                  { id: data.user.id, fcmtoken: fcmToken },
+                  {
+                    onSuccess: () => {
+                      console.log("FCM token mis à jour pour l'utilisateur:", data.user.id);
+                    },
+                    onError: (error: any) => {
+                      console.error("Erreur lors de la mise à jour du FCM token:", error);
+                      Toast.show({
+                        type: "errorToast",
+                        props: { message: "Échec de la mise à jour du token de notification" },
+                      });
+                    },
+                  }
+                );
+              } catch (error) {
+                console.error("Erreur lors de la récupération du FCM token:", error);
+                Toast.show({
+                  type: "errorToast",
+                  props: { message: "Impossible de récupérer le token de notification" },
+                });
+              }
             }
 
             Toast.show({

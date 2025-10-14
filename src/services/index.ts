@@ -38,6 +38,7 @@ import {
   getEvents,
   createEvent,
   deleteEvent,
+  updateUserFcmToken,
 } from '../api';
 
 // Hook pour récupérer les élevages
@@ -355,6 +356,21 @@ export const useLogout = () => {
     },
     onError: (error: any) => {
       console.error('Erreur lors de la déconnexion:', error);
+    },
+  });
+};
+
+// Hook pour mettre à jour le FCM token de l'utilisateur
+export const useUpdateUserFcmToken = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, fcmtoken }: { id: string; fcmtoken: string }) =>
+      updateUserFcmToken(id, fcmtoken),
+    onSuccess: () => {
+      console.log('FCM token mis à jour avec succès');
+    },
+    onError: (error: any) => {
+      console.error('Erreur lors de la mise à jour du FCM token:', error);
     },
   });
 };
