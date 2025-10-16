@@ -1,12 +1,8 @@
 import messaging from "@react-native-firebase/messaging";
 import { NavigationContainerRef } from "@react-navigation/native";
-// NOUVEAU: Import pour gérer l'affichage local des notifications
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// --- CONFIGURATION EXPONOTIFICATIONS (IMPORTANT POUR LE FOREGROUND) ---
-// Définir la logique pour les notifications reçues en premier plan.
-// C'est ce qui indique à Expo/l'OS d'afficher la bannière et de jouer le son.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true, // <-- La clé pour l'affichage en premier plan !

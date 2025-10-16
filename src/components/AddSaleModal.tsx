@@ -8,6 +8,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  ActivityIndicator, // <-- AJOUT POUR L'INDICATEUR DE CHARGEMENT
 } from "react-native";
 import Modal from "react-native-modal";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -25,7 +26,7 @@ interface SaleForm {
   race_poulet: string; // Rendre obligatoire
   nombre_poulet: string;
   prix_unitaitre: string;
-  prix_total: string;
+  prix_total: string; // Gardé ici pour la cohérence de l'objet de soumission
   nom_complet_client: string;
   mode_paiement: string;
 }
@@ -54,7 +55,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
     race_poulet: "",
     nombre_poulet: "",
     prix_unitaitre: "",
-    prix_total: "",
+    prix_total: "", // Laisser vide, sera calculé
     nom_complet_client: "",
     mode_paiement: "",
   });
@@ -90,24 +91,30 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
   // Hook pour créer une vente
   const { mutate: createChickenSale, isLoading: isSubmitting } = useCreateChickenSale();
 
-  // Calculer le prix total automatiquement
-  useEffect(() => {
-    const nombrePoulet = parseInt(form.nombre_poulet) || 0;
-    const prixUnitaire = parseFloat(form.prix_unitaitre) || 0;
-    const prixTotal = (nombrePoulet * prixUnitaire).toFixed(2);
-    setForm((prev) => ({ ...prev, prix_total: prixTotal }));
-  }, [form.nombre_poulet, form.prix_unitaitre]);
+  // **********************************************
+  // * CORRECTION 2: Calcul du Prix Total (Robuste)
+  // **********************************************
+  const nombrePoulet = parseInt(form.nombre_poulet) || 0;
+  const prixUnitaire = parseFloat(form.prix_unitaitre) || 0;
+  const prixTotalCalculated = (nombrePoulet * prixUnitaire).toFixed(2);
+  // Le prix total est maintenant une variable calculée dans le rendu.
+
+  // NOTE: L'ancien useEffect pour le prix total a été supprimé pour éviter les conflits d'état.
 
   // Validation du formulaire
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
+    // ... (Reste de la validation inchangé)
     if (!form.date) newErrors.date = "Date requise";
     if (!form.batiment) newErrors.batiment = "Bâtiment requis";
-    if (!form.race_poulet) newErrors.race_poulet = "Race requise"; // Rendre obligatoire
+    if (!form.race_poulet) newErrors.race_poulet = "Race requise"; 
     if (!form.nombre_poulet || parseInt(form.nombre_poulet) <= 0)
       newErrors.nombre_poulet = "Nombre positif requis";
     if (!form.prix_unitaitre || parseFloat(form.prix_unitaitre) <= 0)
       newErrors.prix_unitaitre = "Prix unitaire positif requis";
+    // Utiliser le prix total calculé pour la validation
+    if (parseFloat(prixTotalCalculated) <= 0)
+       newErrors.prix_total = "Prix total doit être positif"; 
     if (!form.nom_complet_client)
       newErrors.nom_complet_client = "Client requis";
     if (!form.mode_paiement)
@@ -126,15 +133,16 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
         race_poulet: form.race_poulet,
         nombre_poulet: parseInt(form.nombre_poulet),
         prix_unitaitre: parseFloat(form.prix_unitaitre),
-        prix_total: parseFloat(form.prix_total),
+        prix_total: parseFloat(prixTotalCalculated), // <-- UTILISER LA VALEUR CALCULÉE
         nom_complet_client: form.nom_complet_client,
         mode_paiement: form.mode_paiement,
       };
+      
       console.log("Données envoyées à l'API:", saleData);
-      console.log("Race sélectionnée:", form.race_poulet);
+      
       createChickenSale(saleData, {
         onSuccess: (data) => {
-          console.log("Vente poulet créée avec succès:", data);
+          // ... (logique de succès inchangée)
           Toast.show({
             type: "successToast",
             props: {
@@ -155,6 +163,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
           });
         },
         onError: (error: any) => {
+          // ... (logique d'erreur inchangée)
           console.error("Erreur lors de la création de la vente:", error);
           console.error("Détails de l'erreur:", error.response?.data);
           Toast.show({
@@ -178,9 +187,10 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
       style={styles.modal}
       animationIn="slideInUp"
       animationOut="slideOutDown"
+      avoidKeyboard={true} // <-- CORRECTION 1: Ajout pour mieux gérer le clavier
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined} // CORRECTION 1: Meilleur comportement pour Android
         style={styles.keyboardAvoidingView}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -197,6 +207,9 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 <Icon name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
+
+            {/* Champ Date */}
+            {/* ... (champs Date, Bâtiment, Race, Nombre vendu) ... */}
 
             {/* Champ Date */}
             <View style={styles.inputContainer}>
@@ -313,7 +326,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
               <Text style={styles.label}>Prix total (XAF) *</Text>
               <TextInput
                 style={[styles.input, styles.readOnlyInput]}
-                value={form.prix_total}
+                value={prixTotalCalculated} // <-- UTILISE LA VALEUR CALCULÉE
                 editable={false}
                 placeholder="Calculé automatiquement"
                 placeholderTextColor={COLORS.textLight}
@@ -361,12 +374,14 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
               <TouchableOpacity
                 style={[styles.submitButton, isSubmitting && styles.disabledButton]}
                 onPress={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting} // Empêche les clics multiples
               >
                 <View style={styles.submitGradient}>
-                  <Text style={styles.submitButtonText}>
-                    {isSubmitting ? "Ajout en cours..." : "Ajouter"}
-                  </Text>
+                  {isSubmitting ? ( // <-- AFFICHE LE CHARGEMENT OU LE TEXTE
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Ajouter</Text>
+                  )}
                 </View>
               </TouchableOpacity>
             </Animatable.View>
