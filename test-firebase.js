@@ -2,7 +2,6 @@ import messaging from "@react-native-firebase/messaging";
 import { NavigationContainerRef } from "@react-navigation/native";
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true, // <-- La clé pour l'affichage en premier plan !
@@ -59,7 +58,6 @@ export const setupFirebaseMessaging = async () => {
     console.log('Statut des permissions Expo Notifications :', status);
 
 
-    // 3. Créer le canal de notification pour Android (utilise "default" comme dans votre log)
     if (Platform.OS === 'android') {
         // Le channelId 'default' doit exister pour que les notifications Android s'affichent correctement
         await Notifications.setNotificationChannelAsync('default', {
