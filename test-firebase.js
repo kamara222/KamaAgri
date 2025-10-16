@@ -86,6 +86,7 @@ export const setupFirebaseMessaging = async () => {
         const { title, body, android } = remoteMessage.notification;
         
         await Notifications.presentNotificationAsync({
+      //  await Notifications.scheduleNotificationAsync({
             title: title || 'Nouvelle notification',
             body: body || '',
             data: remoteMessage.data, // Transmettre les données pour la navigation
