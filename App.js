@@ -1,43 +1,3 @@
-// // App.tsx
-// import React, { useEffect, useState } from 'react';
-// import { StatusBar } from 'expo-status-bar';
-// import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-// import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
-// import Navigation from './src/navigations/navigation';
-// import Toast from "react-native-toast-message";
-// import { toastConfig } from "./src/utils";
-
-
-
-// export default function App() {
-//   // Charger les polices
-//   const [fontsLoaded] = useFonts({
-//     'Roboto-Regular': Roboto_400Regular,
-//     'Roboto-Medium': Roboto_500Medium,
-//     'Roboto-Bold': Roboto_700Bold,
-//   });
-
-//   // Afficher un écran de chargement si les polices ne sont pas prêtes
-//   if (!fontsLoaded) {
-//     return null;
-//   }
-
-//   const queryClient = new QueryClient();
-
-//   return (
-//     <QueryClientProvider client={queryClient}>
-//       <StatusBar style="light" />
-//       <Navigation />
-//       <Toast config={toastConfig} position={'bottom'} />
-//     </QueryClientProvider>
-
-//   );
-// }
-
-
-
-
-// App.tsx
 import React, { useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -61,21 +21,29 @@ export default function App() {
 
   // Initialisation Firebase Messaging au démarrage
   useEffect(() => {
-    // Fournir la référence de navigation à testfirebase.js
+    // Fournir la référence de navigation à test-firebase.js
     if (navigationRef.current) {
       setNavigationRef(navigationRef.current);
     }
 
-    // Démarrer la configuration Firebase Messaging et récupérer la fonction de désabonnement
-    const unsubscribePromise = setupFirebaseMessaging();
-
-    // Se désabonner lors du démontage du composant si nécessaire
-    unsubscribePromise.then(unsubscribe => {
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
+    let cleanup: (() => void) | undefined;
+    
+    // Démarrer la configuration Firebase Messaging et gérer la désinscription
+    setupFirebaseMessaging().then(unsubscribe => {
+        cleanup = unsubscribe;
+    }).catch(error => {
+        console.error("Erreur lors de la configuration de Firebase Messaging:", error);
     });
-  }, []);
+
+    // Fonction de nettoyage exécutée lors du démontage du composant
+    return () => {
+        if (cleanup) {
+            cleanup();
+            console.log("Désabonnement de Firebase Messaging effectué.");
+        }
+    };
+    // Dépendance vide car cette initialisation ne doit se faire qu'une seule fois
+  }, []); 
 
   if (!fontsLoaded) {
     return null;
