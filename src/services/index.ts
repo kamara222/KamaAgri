@@ -3,6 +3,7 @@ import {
   getEleves,
   getLots,
   createLot,
+  updateLot,
   deleteLot,
   getMortalities,
   createMortality,
@@ -12,6 +13,7 @@ import {
   deleteFeedDistribution,
   getBassins,
   createBassin,
+  updateBassin,
   deleteBassin,
   getEspeces,
   getFishMortalities,
@@ -68,18 +70,11 @@ export const useCreateLot = () => {
   });
 };
 
-// Hook pour mettre à jour un lot de poulets
+// Hook pour mettre à jour un lot de poulets (PATCH via la couche api)
 export const useUpdateLot = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      fetch(`http://161.97.103.214:3002/poulet/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      }).then((res) => res.json()),
+    mutationFn: updateLot,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lots'] });
     },
@@ -181,6 +176,17 @@ export const useCreateBassin = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createBassin,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bassins'] });
+    },
+  });
+};
+
+// Hook pour mettre à jour un bassin (PATCH via la couche api)
+export const useUpdateBassin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateBassin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bassins'] });
     },

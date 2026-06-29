@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import DatePicker from 'react-native-date-picker';
 import { RootStackParamList } from '../navigations/navigation';
@@ -26,7 +26,7 @@ interface FormData {
 // Composant du formulaire
 const ChickenLotFormScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const route = useRoute();
+  const route = useRoute<RouteProp<RootStackParamList, 'ChickenLotForm'>>();
   const lotId = route.params?.lotId;
 
   // État du formulaire

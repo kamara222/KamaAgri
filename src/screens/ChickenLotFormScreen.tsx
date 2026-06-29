@@ -25,6 +25,7 @@ import { theme } from '../styles/theme';
 import Input from '../components/Input';
 import Dropdown from '../components/Dropdown';
 import Card from '../components/Card';
+import Button from '../components/Button';
 
 // TypeScript : Typage de la navigation
 type NavigationProp = StackNavigationProp<RootStackParamList, 'ChickenLotList'>;

@@ -1,5 +1,4 @@
 import messaging from "@react-native-firebase/messaging";
-import { NavigationContainerRef } from "@react-navigation/native";
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 Notifications.setNotificationHandler({
@@ -12,14 +11,14 @@ Notifications.setNotificationHandler({
 // ----------------------------------------------------------------------
 
 
-let navigationRef: NavigationContainerRef<ReactNavigation.RootParamList> | null = null;
+let navigationRef = null;
 
-export const setNavigationRef = (ref: any) => {
+export const setNavigationRef = (ref) => {
   // Assurez-vous que le type est compatible si vous utilisez TypeScript strict
   navigationRef = ref;
 };
 
-export const handleNotificationOpen = async (remoteMessage: any) => {
+export const handleNotificationOpen = async (remoteMessage) => {
   if (remoteMessage) {
     console.log('Notification ouverte par l\'utilisateur', remoteMessage);
     
@@ -29,14 +28,10 @@ export const handleNotificationOpen = async (remoteMessage: any) => {
       
       switch (type) {
         case 'chat':
-          navigationRef.navigate('ChatScreen', {
-            chatId: remoteMessage.data.chatId
-          });
-          break;
         case 'notification':
         default:
-          // Le nom de l'écran par défaut dans votre projet
-          navigationRef.navigate('Notification'); 
+          // Écran de notifications enregistré dans le stack
+          navigationRef.navigate('Notifications');
           break;
       }
     }

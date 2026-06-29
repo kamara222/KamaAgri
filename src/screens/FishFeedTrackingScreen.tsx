@@ -172,7 +172,7 @@ const FishFeedTrackingScreen: React.FC = () => {
       {/* Liste des distributions */}
       <FlatList
         data={filteredDistributions}
-        renderItem={renderFeedItem}
+        renderItem={renderFeedItem as any}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={

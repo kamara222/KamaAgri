@@ -77,7 +77,7 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
   ];
 
   // Hook pour créer une mortalité
-  const { mutate: createFishMortality, isLoading: isSubmitting } = useCreateFishMortality();
+  const { mutate: createFishMortality, isPending: isSubmitting } = useCreateFishMortality();
 
   // Validation du formulaire
   const validateForm = () => {
@@ -299,7 +299,7 @@ const AddFishMortalityModal: React.FC<AddFishMortalityModalProps> = ({
             {/* Bouton de soumission */}
             <Animatable.View
               animation="pulse"
-              iterationCount="infinite"
+              iterationCount={1}
               duration={2000}
             >
               <TouchableOpacity

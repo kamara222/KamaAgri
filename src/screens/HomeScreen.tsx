@@ -16,9 +16,9 @@ import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import { useLogout, useRoleServices, useStats, useChickenSales, useFishSales } from "../services";
+import { useRoleServices, useStats, useChickenSales, useFishSales, useLots, useBassins } from "../services";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../navigation/Navigation";
+import { RootStackParamList } from "../navigations/navigation";
 import CustomSelect from "../components/CustomSelect";
 
 // Interface pour les informations utilisateur
@@ -62,7 +62,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { mutate: logout } = useLogout();
   const [userInitials, setUserInitials] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("");
@@ -86,6 +85,17 @@ const HomeScreen: React.FC = () => {
     isLoading: isServicesLoading,
     isError: isServicesError,
   } = useRoleServices(userRole, !!userRole);
+  // Mêmes sources que les écrans Gestion (lots /poulet, bassins /poisson)
+  const {
+    data: lots,
+    isLoading: isLotsLoading,
+    isError: isLotsError,
+  } = useLots();
+  const {
+    data: basins,
+    isLoading: isBasinsLoading,
+    isError: isBasinsError,
+  } = useBassins();
 
   // Options pour le filtre de type
   const typeOptions = [
@@ -94,10 +104,37 @@ const HomeScreen: React.FC = () => {
     { label: "Poissons", value: "Poissons" },
   ];
 
+  // Totaux recalculés côté client depuis les vraies listes (cohérents avec les
+  // écrans Gestion). L'endpoint /divers/stats étant peu fiable, on somme les `nombre`.
+  const totalPouletsCalc = useMemo(
+    () => (lots ?? []).reduce((s, lot) => s + (lot.nombre || 0), 0),
+    [lots]
+  );
+  const totalPoissonsCalc = useMemo(
+    () => (basins ?? []).reduce((s, basin) => s + (basin.nombre || 0), 0),
+    [basins]
+  );
+
   // Formatter les nombres avec des séparateurs de milliers
-  const formattedTotalChickens = stats?.totalPouletRestant.toLocaleString("fr-FR") ?? "0";
-  const formattedTotalFish = stats?.totalPoissonRestant.toLocaleString("fr-FR") ?? "0";
-  const formattedTotalSales = stats?.totalVentesMois.toLocaleString("fr-FR") ?? "0";
+  const formattedTotalChickens = totalPouletsCalc.toLocaleString("fr-FR");
+  const formattedTotalFish = totalPoissonsCalc.toLocaleString("fr-FR");
+
+  // Total des ventes du mois recalculé côté client : l'API /divers/stats renvoie 0
+  // alors que les ventes existent bien (via /ventes -> useChickenSales/useFishSales).
+  const totalVentesMoisCalc = useMemo(() => {
+    const now = new Date();
+    const isCurrentMonth = (dateStr: string) => {
+      const d = new Date(dateStr);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    };
+    const allSales = [...(chickenSales ?? []), ...(fishSales ?? [])];
+    return allSales.reduce(
+      (acc, sale) =>
+        sale.date && isCurrentMonth(sale.date) ? acc + (sale.prix_total || 0) : acc,
+      0
+    );
+  }, [chickenSales, fishSales]);
+  const formattedTotalSales = totalVentesMoisCalc.toLocaleString("fr-FR");
 
   // Données des cartes
   const summaryDataTemplate = [
@@ -143,9 +180,9 @@ const HomeScreen: React.FC = () => {
           if (item.title === "Total Poulets") {
             return {
               ...item,
-              value: isStatsLoading
+              value: isLotsLoading
                 ? "Chargement..."
-                : isStatsError
+                : isLotsError
                 ? "Erreur"
                 : formattedTotalChickens,
             };
@@ -153,9 +190,9 @@ const HomeScreen: React.FC = () => {
           if (item.title === "Total Poissons") {
             return {
               ...item,
-              value: isStatsLoading
+              value: isBasinsLoading
                 ? "Chargement..."
-                : isStatsError
+                : isBasinsError
                 ? "Erreur"
                 : formattedTotalFish,
             };
@@ -163,16 +200,30 @@ const HomeScreen: React.FC = () => {
           if (item.title === "Ventes Mois") {
             return {
               ...item,
-              value: isStatsLoading
-                ? "Chargement..."
-                : isStatsError
-                ? "Erreur"
-                : formattedTotalSales,
+              value:
+                isChickenSalesLoading || isFishSalesLoading
+                  ? "Chargement..."
+                  : isChickenSalesError || isFishSalesError
+                  ? "Erreur"
+                  : formattedTotalSales,
             };
           }
           return item;
         }),
-    [effectiveServices, isStatsLoading, isStatsError, formattedTotalChickens, formattedTotalFish, formattedTotalSales]
+    [
+      effectiveServices,
+      isLotsLoading,
+      isLotsError,
+      isBasinsLoading,
+      isBasinsError,
+      isChickenSalesLoading,
+      isFishSalesLoading,
+      isChickenSalesError,
+      isFishSalesError,
+      formattedTotalChickens,
+      formattedTotalFish,
+      formattedTotalSales,
+    ]
   );
 
   // Calculer les 7 derniers jours pour les labels du graphique
@@ -319,7 +370,7 @@ const HomeScreen: React.FC = () => {
         const userData = await AsyncStorage.getItem("userInfo");
         if (userData) {
           const user: UserInfo = JSON.parse(userData);
-          const initials = `${user.prenom.charAt(0)}${user.nom.charAt(0)}`.toUpperCase();
+          const initials = `${(user.prenom ?? '?').charAt(0)}${(user.nom ?? '').charAt(0)}`.toUpperCase();
           setUserInitials(initials);
           setUserRole(user.role.code);
         } else {
@@ -340,43 +391,6 @@ const HomeScreen: React.FC = () => {
     fetchUserInfo();
   }, []);
 
-  // Gérer la déconnexion avec modale de confirmation
-  const handleLogout = () => {
-    Alert.alert(
-      "Confirmation",
-      "Voulez-vous vous déconnecter ?",
-      [
-        { text: "Non", style: "cancel" },
-        {
-          text: "Oui",
-          style: "destructive",
-          onPress: () => {
-            logout(
-              {},
-              {
-                onSuccess: () => {
-                  Toast.show({
-                    type: "successToast",
-                    props: { message: "Déconnexion réussie" },
-                  });
-                  navigation.replace("LoginScreen");
-                },
-                onError: (error: any) => {
-                  Toast.show({
-                    type: "errorToast",
-                    props: { message: "Échec de la déconnexion" },
-                  });
-                  console.error("Erreur de déconnexion:", error);
-                },
-              }
-            );
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
-
   // Vérification des données
   const isDataValid = summaryData.length > 0 && salesChartData.labels.length > 0;
 
@@ -385,26 +399,17 @@ const HomeScreen: React.FC = () => {
     navigation.setOptions({
       headerLeft: () => (
         <TouchableOpacity
-          style={styles.headerInitialsContainer}
-          onPress={() => navigation.navigate("ProfileScreen")}
-          accessibilityLabel="Voir le profil"
-          accessibilityHint="Navigue vers la page de profil"
+          style={styles.headerBackButton}
+          onPress={() => navigation.navigate("Accueil")}
+          accessibilityLabel="Retour à l'accueil"
+          accessibilityHint="Revient à la page d'accueil"
         >
-          <Text style={styles.headerInitials}>{userInitials || "??"}</Text>
+          <Icon name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
       ),
-      headerRight: () => (
-        <TouchableOpacity
-          style={styles.headerIconContainer}
-          onPress={handleLogout}
-          accessibilityLabel="Se déconnecter"
-          accessibilityHint="Ouvre une modale pour confirmer la déconnexion"
-        >
-          <Icon name="logout" size={24} color={COLORS.white} />
-        </TouchableOpacity>
-      ),
+      headerRight: () => null,
     });
-  }, [navigation, userInitials]);
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -475,7 +480,7 @@ const HomeScreen: React.FC = () => {
           {effectiveServices.includes("ventes") && (
             <View style={styles.chartContainer}>
               <View style={styles.chartHeader}>
-                <Text style={styles.sectionTitle}>Ventes (7 jours, XOF)</Text>
+                <Text style={[styles.sectionTitle, styles.chartTitle]}>Ventes (7 jours, XOF)</Text>
                 <CustomSelect
                   options={typeOptions}
                   value={filterType}
@@ -534,7 +539,7 @@ const HomeScreen: React.FC = () => {
                   >
                     <TouchableOpacity
                       style={styles.navButton}
-                      onPress={() => navigation.navigate(button.screen)}
+                      onPress={() => navigation.navigate(button.screen as never)}
                       accessibilityLabel={`Aller à ${button.name}`}
                       accessibilityHint={button.hint}
                       activeOpacity={0.8}
@@ -622,8 +627,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: SIZES.margin,
   },
+  chartTitle: {
+    flex: 1,
+    flexShrink: 1,
+    marginRight: SIZES.margin / 2,
+  },
   filterSelect: {
-    width: 120,
+    width: 150,
     padding: SIZES.padding / 2,
   },
   chart: {
@@ -688,6 +698,9 @@ const styles = StyleSheet.create({
   },
   headerIconContainer: {
     marginRight: SIZES.padding,
+  },
+  headerBackButton: {
+    marginLeft: SIZES.padding,
   },
   loadingContainer: {
     flex: 1,

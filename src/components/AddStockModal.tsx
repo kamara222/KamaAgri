@@ -169,7 +169,7 @@ const AddStockModal: React.FC<AddStockModalProps> = ({
             </View>
 
             {/* Bouton de soumission */}
-            <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
+            <Animatable.View animation="pulse" iterationCount={1} duration={2000}>
               <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
                 <View style={styles.submitGradient}>
                   <Text style={styles.submitButtonText}>Ajouter</Text>

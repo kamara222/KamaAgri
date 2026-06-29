@@ -9,7 +9,7 @@ interface CardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  iconName: string; // Nom de l’icône MaterialIcons
+  iconName: keyof typeof MaterialIcons.glyphMap; // Nom de l’icône MaterialIcons
 }
 
 // Composant de carte pour afficher des résumés

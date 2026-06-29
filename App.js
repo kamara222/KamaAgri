@@ -9,6 +9,20 @@ import { toastConfig } from "./src/utils";
 // Importer les fonctions Firebase
 import { setupFirebaseMessaging, setNavigationRef } from './test-firebase';
 
+// QueryClient créé UNE SEULE FOIS (niveau module) pour conserver le cache
+// entre les rendus et les navigations. Cache en session : les pages déjà
+// visitées ne se rechargent pas tant que les données restent "fraîches".
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 min : pas de refetch en revisitant une page
+      gcTime: 30 * 60 * 1000, // gardées 30 min en mémoire même sans écran monté
+      retry: 2,
+      refetchOnReconnect: true,
+    },
+  },
+});
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     'Roboto-Regular': Roboto_400Regular,
@@ -26,7 +40,7 @@ export default function App() {
       setNavigationRef(navigationRef.current);
     }
 
-    let cleanup: (() => void) | undefined;
+    let cleanup;
     
     // Démarrer la configuration Firebase Messaging et gérer la désinscription
     setupFirebaseMessaging().then(unsubscribe => {
@@ -48,8 +62,6 @@ export default function App() {
   if (!fontsLoaded) {
     return null;
   }
-
-  const queryClient = new QueryClient();
 
   return (
     <QueryClientProvider client={queryClient}>

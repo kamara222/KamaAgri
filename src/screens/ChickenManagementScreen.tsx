@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,10 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Toast from 'react-native-toast-message';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import AddLotModal from '../components/AddLotModal';
+import DetailModal from '../components/DetailModal';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useLots, useCreateLot, useDeleteLot } from '../services';
+import { useLots, useCreateLot, useUpdateLot, useDeleteLot } from '../services';
 
 // Définir les types pour la navigation
 type RootStackParamList = {
@@ -48,13 +49,17 @@ const ChickenManagementScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [resetForm, setResetForm] = useState(false); // État pour déclencher la réinitialisation
+  const [editingLot, setEditingLot] = useState<Lot | null>(null); // lot en cours de modification
+  const [selectedLot, setSelectedLot] = useState<Lot | null>(null); // lot affiché en détail
+  const [fabExtended, setFabExtended] = useState(true); // FAB étendu ("+ Nouveau")
+  const lastOffsetY = useRef(0);
 
   // Récupérer les lots via API
   const { data: lots, isLoading, error } = useLots(searchQuery ? searchQuery : undefined);
 
-  // Mutation pour créer un lot
+  // Mutations
   const createLotMutation = useCreateLot();
-  // Mutation pour supprimer un lot
+  const updateLotMutation = useUpdateLot();
   const deleteLotMutation = useDeleteLot();
 
   // Gérer les erreurs
@@ -67,32 +72,54 @@ const ChickenManagementScreen: React.FC = () => {
     });
   }
 
-  // Filtrer les lots localement avec vérification des null/undefined
-  const filteredLots = lots?.filter((lot) => {
-    console.log('Valeur de lot.race:', lot.race);
-    const race = lot.race
-      ? typeof lot.race === 'string'
-        ? lot.race.toLowerCase()
-        : lot.race.nom
-        ? lot.race.nom.toLowerCase()
-        : ''
-      : '';
-    const batiment =
-      lot.batiment !== null && lot.batiment !== undefined ? String(lot.batiment).toLowerCase() : '';
-    return (
-      race.includes(searchQuery.toLowerCase()) ||
-      batiment.includes(searchQuery.toLowerCase())
-    );
-  }) || [];
+  // Filtrer les lots localement (mémoïsé) avec vérification des null/undefined
+  const filteredLots = useMemo(
+    () =>
+      (lots ?? []).filter((lot) => {
+        const race = lot.race
+          ? typeof lot.race === 'string'
+            ? lot.race.toLowerCase()
+            : (lot.race?.nom ?? '').toLowerCase()
+          : '';
+        const batiment =
+          lot.batiment !== null && lot.batiment !== undefined
+            ? String(lot.batiment).toLowerCase()
+            : '';
+        const q = searchQuery.toLowerCase();
+        return race.includes(q) || batiment.includes(q);
+      }),
+    [lots, searchQuery]
+  );
 
-  // Gérer la soumission du modal
-  const handleAddLot = (form: {
+  // Total des poulets affichés (somme des `nombre` des lots) — cohérent avec le dashboard
+  const totalPoulets = filteredLots.reduce((sum, lot) => sum + (lot.nombre || 0), 0);
+
+  type LotForm = {
     dateArrivee: Date;
     nombrePoulets: string;
     poidsMoyen: string;
     batiment: string;
     race: string;
-  }) => {
+  };
+
+  // Mapper un lot (API) vers le formulaire pour pré-remplir l'édition
+  const mapLotToForm = (lot: Lot): LotForm => ({
+    dateArrivee: lot.date ? new Date(lot.date) : new Date(),
+    nombrePoulets: String(lot.nombre ?? ''),
+    poidsMoyen: String(lot.poids_moyen ?? ''),
+    batiment: lot.batiment || '',
+    race: typeof lot.race === 'string' ? lot.race : lot.race?.code || '',
+  });
+
+  // Ouvrir le formulaire en mode édition (pré-rempli)
+  const handleEditLot = (lot: Lot) => {
+    setEditingLot(lot);
+    setResetForm(false);
+    setIsModalVisible(true);
+  };
+
+  // Gérer la soumission du modal (création ou mise à jour)
+  const handleAddLot = (form: LotForm) => {
     const lotData = {
       batiment: form.batiment,
       race: form.race,
@@ -100,32 +127,40 @@ const ChickenManagementScreen: React.FC = () => {
       nombre: parseInt(form.nombrePoulets),
       poids_moyen: parseFloat(form.poidsMoyen),
     };
-    console.log('Données envoyées pour création du lot:', lotData);
-    createLotMutation.mutate(
-      lotData,
-      {
-        onSuccess: (data) => {
-          console.log('Lot créé avec succès:', data);
-          Toast.show({
-            type: 'successToast',
-            props: {
-              message: 'Lot ajouté avec succès',
-            },
-          });
-          setIsModalVisible(false);
-          setResetForm(true); // Déclencher la réinitialisation pour la prochaine ouverture
-        },
-        onError: (err) => {
-          console.error('Erreur lors de la création du lot:', err);
-          Toast.show({
-            type: 'errorToast',
-            props: {
-              message: 'Erreur lors de l’ajout du lot',
-            },
-          });
-        },
-      }
-    );
+    const handlers = {
+      onSuccess: () => {
+        Toast.show({
+          type: 'successToast',
+          props: { message: editingLot ? 'Lot modifié avec succès' : 'Lot ajouté avec succès' },
+        });
+        setIsModalVisible(false);
+        setEditingLot(null);
+        setResetForm(true);
+      },
+      onError: () => {
+        Toast.show({
+          type: 'errorToast',
+          props: {
+            message: editingLot
+              ? 'Erreur lors de la modification du lot'
+              : 'Erreur lors de l’ajout du lot',
+          },
+        });
+      },
+    };
+    if (editingLot) {
+      updateLotMutation.mutate({ id: editingLot.id, ...lotData }, handlers);
+    } else {
+      createLotMutation.mutate(lotData, handlers);
+    }
+  };
+
+  // FAB : réduire ("+") au scroll vers le bas, étendre ("+ Nouveau") vers le haut
+  const handleScroll = (e: any) => {
+    const y = e.nativeEvent.contentOffset.y;
+    if (y > lastOffsetY.current + 8 && fabExtended) setFabExtended(false);
+    else if (y < lastOffsetY.current - 8 && !fabExtended) setFabExtended(true);
+    lastOffsetY.current = y;
   };
 
   // Gérer la suppression d'un lot
@@ -167,25 +202,43 @@ const ChickenManagementScreen: React.FC = () => {
     );
   };
 
+  // Lignes de détail d'un lot pour la modal
+  const lotDetailRows = (lot: Lot) => [
+    { label: 'Bâtiment', value: lot.batiment || 'Inconnu' },
+    { label: 'Race', value: typeof lot.race === 'string' ? lot.race : lot.race?.nom || 'Inconnu' },
+    { label: "Date d'arrivée", value: lot.date || '—' },
+    { label: 'Nombre de poulets', value: `${lot.nombre ?? 0}` },
+    { label: 'Poids moyen', value: `${lot.poids_moyen ?? 0} kg` },
+  ];
+
   // Rendu de chaque carte de lot
   const renderLotItem = ({ item }: { item: Lot }) => (
     <TouchableOpacity
       style={styles.lotCard}
-      onPress={() => {
-        console.log('Modifier lot', item.id);
-      }}
+      activeOpacity={0.7}
+      onPress={() => setSelectedLot(item)}
     >
       <View style={styles.lotHeader}>
         <Icon name="egg" size={24} color={COLORS.primary} />
         <Text style={styles.lotTitle}>
           {typeof item.race === 'string' ? item.race : item.race?.nom || 'Inconnu'}
         </Text>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteLot(item.id, item.race)}
-        >
-          <Icon name="delete" size={24} color={COLORS.error} />
-        </TouchableOpacity>
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleDeleteLot(item.id, item.race)}
+            accessibilityLabel="Supprimer le lot"
+          >
+            <Icon name="delete" size={24} color={COLORS.error} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleEditLot(item)}
+            accessibilityLabel="Modifier le lot"
+          >
+            <Icon name="edit" size={24} color={COLORS.accent} />
+          </TouchableOpacity>
+        </View>
       </View>
       <Text style={styles.lotDetail}>Arrivée: {item.date}</Text>
       <Text style={styles.lotDetail}>Poulets: {item.nombre}</Text>
@@ -193,8 +246,6 @@ const ChickenManagementScreen: React.FC = () => {
       <Text style={styles.lotDetail}>Bâtiment: {item.batiment || 'Inconnu'}</Text>
     </TouchableOpacity>
   );
-
-  console.log('Lots chargés:', lots);
 
   return (
     <View style={styles.container}>
@@ -240,6 +291,9 @@ const ChickenManagementScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
+          ListHeaderComponent={
+            <Text style={styles.totalHeader}>Total : {totalPoulets.toLocaleString('fr-FR')} poulets</Text>
+          }
           data={filteredLots}
           renderItem={renderLotItem}
           keyExtractor={(item) => item.id}
@@ -247,30 +301,44 @@ const ChickenManagementScreen: React.FC = () => {
           ListEmptyComponent={
             <Text style={styles.emptyText}>Aucun lot trouvé</Text>
           }
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
       )}
 
-      {/* Bouton flottant pour ajouter un lot */}
+      {/* FAB étendu : "+ Nouveau" qui se réduit à "+" au scroll */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, fabExtended && styles.fabExtended]}
         onPress={() => {
+          setEditingLot(null);
           setIsModalVisible(true);
-          setResetForm(true); // Réinitialiser le formulaire à l'ouverture
+          setResetForm(true);
         }}
         accessibilityLabel="Ajouter un nouveau lot"
       >
-        <Icon name="add" size={30} color={COLORS.white} />
+        <Icon name="add" size={28} color={COLORS.white} />
+        {fabExtended && <Text style={styles.fabText}>Nouveau</Text>}
       </TouchableOpacity>
 
-      {/* Modal pour ajouter un lot */}
+      {/* Modal pour ajouter / modifier un lot */}
       <AddLotModal
         isVisible={isModalVisible}
         onClose={() => {
           setIsModalVisible(false);
-          setResetForm(false); // Réinitialiser l'état après fermeture
+          setEditingLot(null);
+          setResetForm(false);
         }}
         onSubmit={handleAddLot}
         resetForm={resetForm}
+        initialData={editingLot ? mapLotToForm(editingLot) : undefined}
+      />
+
+      {/* Modal de détail d'un lot */}
+      <DetailModal
+        visible={!!selectedLot}
+        title="Détail du lot"
+        rows={selectedLot ? lotDetailRows(selectedLot) : []}
+        onClose={() => setSelectedLot(null)}
       />
     </View>
   );
@@ -320,6 +388,12 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: SIZES.padding,
   },
+  totalHeader: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.bold,
+    color: COLORS.success,
+    marginBottom: SIZES.margin,
+  },
   lotCard: {
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
@@ -361,16 +435,35 @@ const styles = StyleSheet.create({
     bottom: SIZES.margin * 2,
     right: SIZES.margin * 2,
     backgroundColor: COLORS.secondary,
-    borderRadius: 30,
-    width: 60,
-    height: 60,
+    borderRadius: 28,
+    minWidth: 56,
+    height: 56,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  fabExtended: {
+    paddingHorizontal: 20,
+  },
+  fabText: {
+    color: COLORS.white,
+    fontFamily: FONTS.bold,
+    fontSize: SIZES.fontMedium,
+    marginLeft: 8,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    padding: 6,
+    marginLeft: SIZES.margin / 2,
   },
   loadingContainer: {
     flex: 1,

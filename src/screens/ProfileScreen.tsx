@@ -16,7 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import { useLogout } from '../services';
 import Toast from 'react-native-toast-message';
-import { RootStackParamList } from '../navigation/Navigation';
+import { RootStackParamList } from '../navigations/navigation';
 
 // Interface pour les informations utilisateur
 interface UserInfo {
@@ -80,7 +80,7 @@ const ProfileScreen: React.FC = () => {
           style: 'destructive',
           onPress: () => {
             logout(
-              {},
+              undefined,
               {
                 onSuccess: () => {
                   Toast.show({
@@ -108,9 +108,9 @@ const ProfileScreen: React.FC = () => {
   };
 
   // Formatter le numéro de téléphone
-  const formatPhoneNumber = (phone: string) => {
-    // Supposons que le numéro est au format 2250707056181
-    // On le formate comme +225 07 07 05 61 81
+  const formatPhoneNumber = (phone?: string) => {
+    if (!phone) return 'Non disponible';
+    // Format attendu 2250707056181 -> +225 07 07 05 61 81
     if (phone.startsWith('225') && phone.length === 12) {
       return `+${phone.slice(0, 3)} ${phone.slice(3, 5)} ${phone.slice(5, 7)} ${phone.slice(7, 9)} ${phone.slice(9, 11)} ${phone.slice(11)}`;
     }
@@ -118,8 +118,8 @@ const ProfileScreen: React.FC = () => {
   };
 
   // Calculer les initiales
-  const getInitials = (prenom: string, nom: string) => {
-    return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
+  const getInitials = (prenom?: string, nom?: string) => {
+    return `${(prenom ?? '?').charAt(0)}${(nom ?? '').charAt(0)}`.toUpperCase();
   };
 
   return (

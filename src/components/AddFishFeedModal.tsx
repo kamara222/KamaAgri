@@ -67,7 +67,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
   ];
 
   // Hook pour créer une distribution
-  const { mutate: createFishFeedDistribution, isLoading: isSubmitting } = useCreateFishFeedDistribution();
+  const { mutate: createFishFeedDistribution, isPending: isSubmitting } = useCreateFishFeedDistribution();
 
   // Validation du formulaire
   const validateForm = () => {
@@ -265,7 +265,7 @@ const AddFishFeedModal: React.FC<AddFishFeedModalProps> = ({
             {/* Bouton de soumission */}
             <Animatable.View
               animation="pulse"
-              iterationCount="infinite"
+              iterationCount={1}
               duration={2000}
             >
               <TouchableOpacity

@@ -243,7 +243,7 @@ const PlannerScreen: React.FC = () => {
       )}
 
       {/* Bouton d’ajout */}
-      <Animatable.View animation="pulse" duration={2000} iterationCount="infinite">
+      <Animatable.View animation="pulse" duration={2000} iterationCount={1}>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
@@ -277,10 +277,11 @@ const PlannerScreen: React.FC = () => {
             selectedValue={newEvent.type}
             onValueChange={(value) => setNewEvent({ ...newEvent, type: value })}
             style={styles.picker}
+            dropdownIconColor={COLORS.text}
           >
-            <Picker.Item label="Vaccination" value="vaccination" />
-            <Picker.Item label="Traitement" value="traitement" />
-            <Picker.Item label="Vente" value="vente" />
+            <Picker.Item label="Vaccination" value="vaccination" color={COLORS.text} />
+            <Picker.Item label="Traitement" value="traitement" color={COLORS.text} />
+            <Picker.Item label="Vente" value="vente" color={COLORS.text} />
           </Picker>
           <TouchableOpacity
             style={styles.dateButton}
@@ -306,6 +307,7 @@ const PlannerScreen: React.FC = () => {
             value={newEvent.detail}
             onChangeText={(text) => setNewEvent({ ...newEvent, detail: text })}
             placeholder="Détails"
+            placeholderTextColor={COLORS.textLight}
             multiline
             numberOfLines={4}
           />
@@ -461,6 +463,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.textLight,
     borderRadius: SIZES.radius,
     marginBottom: SIZES.margin,
+    color: COLORS.text,
   },
   dateButton: {
     borderWidth: 1,

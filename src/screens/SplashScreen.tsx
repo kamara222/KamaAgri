@@ -189,15 +189,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginHorizontal: 4,
   },
-  dot1: {
-    animationDelay: '0s',
-  },
-  dot2: {
-    animationDelay: '0.2s',
-  },
-  dot3: {
-    animationDelay: '0.4s',
-  },
+  dot1: {},
+  dot2: {},
+  dot3: {},
   loadingText: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,

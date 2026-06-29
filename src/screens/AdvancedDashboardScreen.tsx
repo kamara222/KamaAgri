@@ -265,7 +265,7 @@
 //       </View>
 
 //       {/* Bouton d’exportation */}
-//       <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
+//       <Animatable.View animation="pulse" iterationCount={1} duration={2000}>
 //         <TouchableOpacity style={styles.exportButton} onPress={generatePDF}>
 //           <Icon name="picture-as-pdf" size={24} color={COLORS.white} />
 //           <Text style={styles.exportButtonText}>Exporter en PDF</Text>

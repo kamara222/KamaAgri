@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -24,6 +26,8 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   placeholder: string;
   error?: string;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 const CustomSelect: React.FC<CustomSelectProps> = ({
@@ -32,6 +36,8 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
   onChange,
   placeholder,
   error,
+  disabled = false,
+  style,
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
@@ -56,10 +62,11 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
 
   return (
     <View style={styles.container}>
-      <Animatable.View animation="pulse" duration={2000} iterationCount="infinite">
+      <Animatable.View animation="pulse" duration={2000} iterationCount={1}>
         <TouchableOpacity
-          style={[styles.selectButton, error && styles.inputError]}
+          style={[styles.selectButton, error && styles.inputError, disabled && styles.disabled, style]}
           onPress={() => setIsModalVisible(true)}
+          disabled={disabled}
         >
           <Text
             style={[
@@ -134,6 +141,9 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: COLORS.error,
   },
+  disabled: {
+    opacity: 0.5,
+  },
   errorText: {
     fontSize: SIZES.fontSmall,
     fontFamily: FONTS.regular,
@@ -150,7 +160,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: SIZES.radius,
     borderTopRightRadius: SIZES.radius,
     padding: SIZES.padding,
-    maxHeight: '50%',
+    paddingBottom: SIZES.padding * 2,
+    maxHeight: '70%',
   },
   modalHandle: {
     width: 40,

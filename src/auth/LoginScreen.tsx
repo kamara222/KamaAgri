@@ -92,7 +92,9 @@ const LoginScreen = ({ navigation }) => {
             }
             if (data.user) {
               // Récupérer les services si non inclus dans la réponse
-              let services: string[] = data.user.services || [];
+              let services: string[] = Array.isArray(data.user.services)
+                ? (data.user.services as string[])
+                : [];
               if (!services.length) {
                 try {
                   const roleServicesData = await getRoleServices(data.user.role.code);
@@ -147,10 +149,10 @@ const LoginScreen = ({ navigation }) => {
 
             Toast.show({
               type: "successToast",
-              props: { message: data.message || "Connexion réussie !" },
+              props: { message: "Connexion réussie !" },
             });
             setIsSubmitting(false);
-            navigation.replace("Home");
+            navigation.replace("Accueil");
           },
           onError: (error: any) => {
             setIsSubmitting(false);

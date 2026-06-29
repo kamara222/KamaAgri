@@ -143,7 +143,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
             </View>
 
             {/* Bouton de soumission */}
-            <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
+            <Animatable.View animation="pulse" iterationCount={1} duration={2000}>
               <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
                 <Text style={styles.submitButtonText}>Ajouter</Text>
               </TouchableOpacity>

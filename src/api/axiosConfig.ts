@@ -39,7 +39,7 @@ function navigateToErrorPage() {
   });
 
   setTimeout(() => {
-    navigate('Error');
+    navigate('Accueil');
   }, 500);
 }
 

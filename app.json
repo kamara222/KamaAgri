@@ -35,12 +35,14 @@
     "plugins": [
       "expo-font",
       "expo-asset",
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
     ],
     "extra": {
       "eas": {
-        "projectId": "250b9b50-b6ed-43d5-a76a-d615eac7a269"
+        "projectId": "2cb5d031-529d-41dd-afe8-431417aec3ac"
       }
-    }
+    },
+    "owner": "kamaso"
   }
 }

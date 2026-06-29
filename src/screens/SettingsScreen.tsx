@@ -336,6 +336,7 @@ const SettingsScreen: React.FC = () => {
             value={newUser.nom}
             onChangeText={(text) => setNewUser({ ...newUser, nom: text })}
             placeholder="Nom"
+            placeholderTextColor={COLORS.textLight}
           />
           
           <TextInput
@@ -343,6 +344,7 @@ const SettingsScreen: React.FC = () => {
             value={newUser.prenom}
             onChangeText={(text) => setNewUser({ ...newUser, prenom: text })}
             placeholder="Prénom"
+            placeholderTextColor={COLORS.textLight}
           />
           
           <TextInput
@@ -350,6 +352,7 @@ const SettingsScreen: React.FC = () => {
             value={newUser.email}
             onChangeText={(text) => setNewUser({ ...newUser, email: text })}
             placeholder="Email"
+            placeholderTextColor={COLORS.textLight}
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -359,6 +362,7 @@ const SettingsScreen: React.FC = () => {
             value={newUser.numeroTelephone}
             onChangeText={(text) => setNewUser({ ...newUser, numeroTelephone: text })}
             placeholder="Numéro de téléphone"
+            placeholderTextColor={COLORS.textLight}
             keyboardType="phone-pad"
           />
           
@@ -366,9 +370,10 @@ const SettingsScreen: React.FC = () => {
             selectedValue={newUser.role}
             onValueChange={(value) => setNewUser({ ...newUser, role: value })}
             style={styles.picker}
+            dropdownIconColor={COLORS.text}
           >
             {roles.map((role) => (
-              <Picker.Item key={role.code} label={role.nom} value={role.code} />
+              <Picker.Item key={role.code} label={role.nom} value={role.code} color={COLORS.text} />
             ))}
           </Picker>
           
@@ -377,6 +382,7 @@ const SettingsScreen: React.FC = () => {
             value={newUser.password}
             onChangeText={(text) => setNewUser({ ...newUser, password: text })}
             placeholder="Mot de passe"
+            placeholderTextColor={COLORS.textLight}
             secureTextEntry
           />
 
@@ -620,6 +626,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.textLight,
     borderRadius: SIZES.radius,
     marginBottom: SIZES.margin,
+    color: COLORS.text,
   },
   servicesContainer: {
     maxHeight: 300,

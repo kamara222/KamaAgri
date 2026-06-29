@@ -89,7 +89,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
   ];
 
   // Hook pour créer une vente
-  const { mutate: createChickenSale, isLoading: isSubmitting } = useCreateChickenSale();
+  const { mutate: createChickenSale, isPending: isSubmitting } = useCreateChickenSale();
 
   // **********************************************
   // * CORRECTION 2: Calcul du Prix Total (Robuste)
@@ -370,7 +370,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
             </View>
 
             {/* Bouton de soumission */}
-            <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
+            <Animatable.View animation="pulse" iterationCount={1} duration={2000}>
               <TouchableOpacity
                 style={[styles.submitButton, isSubmitting && styles.disabledButton]}
                 onPress={handleSubmit}

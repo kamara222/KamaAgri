@@ -329,7 +329,7 @@
 
 //       {/* Boutons d’action */}
 //       <View style={styles.actionsContainer}>
-//         <Animatable.View animation="pulse" duration={2000} iterationCount="infinite">
+//         <Animatable.View animation="pulse" duration={2000} iterationCount={1}>
 //           <TouchableOpacity
 //             style={[styles.actionButton, isLoading && styles.disabledButton]}
 //             onPress={exportData}
@@ -349,7 +349,7 @@
 //             )}
 //           </TouchableOpacity>
 //         </Animatable.View>
-//         <Animatable.View animation="pulse" duration={2000} iterationCount="infinite" delay={200}>
+//         <Animatable.View animation="pulse" duration={2000} iterationCount={1} delay={200}>
 //           <TouchableOpacity
 //             style={[styles.actionButton, isLoading && styles.disabledButton]}
 //             onPress={confirmImport}

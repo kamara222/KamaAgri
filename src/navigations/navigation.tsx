@@ -57,9 +57,11 @@ import PhotoGalleryScreen from '../screens/PhotoGalleryScreen';
 import LoginScreen from '../auth/LoginScreen';
 import SplashScreen from '../screens/SplashScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import AccueilScreen from '../screens/AccueilScreen';
 
 // Définir les types pour la navigation
 export type RootStackParamList = {
+    Accueil: undefined;
     Home: undefined;
     LoginScreen: undefined;
     SplashScreen: undefined;
@@ -75,6 +77,8 @@ export type RootStackParamList = {
     FishFeedTracking: undefined;
     FishSalesTracking: undefined;
     StockManagement: undefined;
+    ChickenLotList: undefined;
+    ChickenLotForm: { lotId?: string } | undefined;
     Reports: undefined;
     ReportDetail: { reportId: string };
     Settings: undefined;
@@ -93,15 +97,22 @@ const Navigation: React.FC = () => {
     return (
         <NavigationContainer>
             <Stack.Navigator
+                id={undefined}
                 initialRouteName="SplashScreen"
                 screenOptions={{
                     headerStyle: { backgroundColor: '#2E7D32' },
                     headerTintColor: '#FFFFFF',
                     headerTitleStyle: { fontFamily: 'Roboto-Bold' },
                     headerTitleAlign: 'center',
-                    headerBackTitleVisible: false,
+                    headerBackButtonDisplayMode: 'minimal',
                 }}
             >
+                <Stack.Screen
+                    name="Accueil"
+                    component={AccueilScreen}
+                    options={{ title: 'Accueil' }}
+                />
+
                 <Stack.Screen
                     name="Home"
                     component={HomeScreen}

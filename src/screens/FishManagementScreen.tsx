@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,10 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import AddBasinModal from '../components/AddBasinModal';
+import DetailModal from '../components/DetailModal';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../navigations/navigation';
 import { useBassins, useDeleteBassin } from '../services';
 import Toast from 'react-native-toast-message';
 
@@ -32,9 +35,13 @@ interface Espece {
 }
 
 const FishManagementScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingBasin, setEditingBasin] = useState<Basin | null>(null);
+  const [selectedBasin, setSelectedBasin] = useState<Basin | null>(null);
+  const [fabExtended, setFabExtended] = useState(true);
+  const lastOffsetY = useRef(0);
 
   // Liste statique des espèces pour la correspondance
   const especes: Espece[] = [
@@ -49,27 +56,14 @@ const FishManagementScreen: React.FC = () => {
   // Hook pour supprimer un bassin
   const deleteBassinMutation = useDeleteBassin();
 
-  // Log pour déboguer les données reçues
-  console.log('Bassins reçus (brut):', JSON.stringify(basins, null, 2));
-  console.log('État de chargement:', isLoading);
-  console.log('Erreur API:', isError);
-  console.log('Recherche:', searchQuery);
-
   // Mapper le code de l'espèce à son nom pour l'affichage
   const getEspeceName = (espece?: string | { code: string; nom: string } | null) => {
-    if (!espece) {
-      console.log('espece est null ou undefined:', espece);
-      return 'Non spécifiée';
-    }
+    if (!espece) return 'Non spécifiée';
     if (typeof espece === 'string') {
       const especeFound = especes.find((e: Espece) => e.value === espece.toLowerCase());
-      console.log(`Recherche de l'espèce "${espece}" dans especes:`, especes);
-      console.log('Espèce trouvée:', especeFound);
       return especeFound ? especeFound.label : espece;
     }
-    console.log(`Recherche de l'espèce (objet) "${espece.code}" dans especes:`, especes);
-    const especeFound = especes.find((e: Espece) => e.value === espece.code.toLowerCase());
-    console.log('Espèce trouvée:', especeFound);
+    const especeFound = especes.find((e: Espece) => e.value === (espece.code ?? '').toLowerCase());
     return especeFound ? especeFound.label : espece.nom || 'Non spécifiée';
   };
 
@@ -112,43 +106,87 @@ const FishManagementScreen: React.FC = () => {
     );
   };
 
-  // Filtrer les bassins en fonction de la recherche (nom_bassin et espece)
-  const filteredBasins = basins && Array.isArray(basins) ? basins.filter((basin) => {
-    try {
-      const nomBassin = basin.nom_bassin ? basin.nom_bassin.toLowerCase() : '';
-      const espece = basin.espece
-        ? typeof basin.espece === 'string'
-          ? basin.espece.toLowerCase()
-          : basin.espece.nom
-          ? basin.espece.nom.toLowerCase()
-          : ''
-        : '';
-      return (
-        nomBassin.includes(searchQuery.toLowerCase()) ||
-        espece.includes(searchQuery.toLowerCase())
-      );
-    } catch (error) {
-      console.error('Erreur de filtrage pour bassin:', basin, error);
-      return true;
-    }
-  }) : [];
+  // Filtrer les bassins (mémoïsé) en fonction de la recherche (nom_bassin et espece)
+  const filteredBasins = useMemo(
+    () =>
+      (Array.isArray(basins) ? basins : []).filter((basin) => {
+        const nomBassin = basin.nom_bassin ? basin.nom_bassin.toLowerCase() : '';
+        const espece = basin.espece
+          ? typeof basin.espece === 'string'
+            ? basin.espece.toLowerCase()
+            : (basin.espece?.nom ?? '').toLowerCase()
+          : '';
+        const q = searchQuery.toLowerCase();
+        return nomBassin.includes(q) || espece.includes(q);
+      }),
+    [basins, searchQuery]
+  );
+
+  // Total des poissons affichés (somme des `nombre` des bassins) — cohérent avec le dashboard
+  const totalPoissons = filteredBasins.reduce((sum, basin) => sum + (basin.nombre || 0), 0);
+
+  // Mapper un bassin (API) vers le formulaire pour pré-remplir l'édition
+  const mapBasinToForm = (basin: Basin) => ({
+    id: basin.id,
+    nom_bassin: basin.nom_bassin || '',
+    espece: typeof basin.espece === 'string' ? basin.espece : basin.espece?.code || '',
+    date: basin.date || '',
+    nombre: basin.nombre !== undefined && basin.nombre !== null ? String(basin.nombre) : '',
+  });
+
+  // Ouvrir le formulaire en mode édition
+  const handleEditBasin = (basin: Basin) => {
+    setEditingBasin(basin);
+    setIsModalVisible(true);
+  };
+
+  // Lignes de détail d'un bassin pour la modal
+  const basinDetailRows = (basin: Basin) => [
+    { label: 'Nom du bassin', value: basin.nom_bassin || 'Non spécifié' },
+    { label: 'Espèce', value: getEspeceName(basin.espece) },
+    {
+      label: 'Mise en eau',
+      value: basin.date ? new Date(basin.date).toLocaleDateString('fr-FR') : '—',
+    },
+    { label: 'Nombre de poissons', value: `${basin.nombre ?? 0}` },
+  ];
+
+  // FAB : réduire/étendre selon le sens du scroll
+  const handleScroll = (e: any) => {
+    const y = e.nativeEvent.contentOffset.y;
+    if (y > lastOffsetY.current + 8 && fabExtended) setFabExtended(false);
+    else if (y < lastOffsetY.current - 8 && !fabExtended) setFabExtended(true);
+    lastOffsetY.current = y;
+  };
 
   // Rendu de chaque carte de bassin
   const renderBasinItem = ({ item }: { item: Basin }) => (
-    <Animatable.View animation="fadeInUp" duration={500} style={styles.basinCard}>
-      <View style={styles.basinHeader}>
-        <Icon name="waves" size={24} color={COLORS.accent} />
-        <Text style={styles.basinTitle}>{item.nom_bassin}</Text>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteBassin(item.id, item)}
-        >
-          <Icon name="delete" size={24} color={COLORS.error} />
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.basinDetail}>Espèce: {getEspeceName(item.espece)}</Text>
-      {item.date && <Text style={styles.basinDetail}>Mise en eau: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>}
-      {item.nombre && <Text style={styles.basinDetail}>Poissons: {item.nombre}</Text>}
+    <Animatable.View animation="fadeInUp" duration={400} style={styles.basinCard}>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => setSelectedBasin(item)}>
+        <View style={styles.basinHeader}>
+          <Icon name="waves" size={24} color={COLORS.accent} />
+          <Text style={styles.basinTitle}>{item.nom_bassin}</Text>
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleDeleteBassin(item.id, item)}
+              accessibilityLabel="Supprimer le bassin"
+            >
+              <Icon name="delete" size={24} color={COLORS.error} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleEditBasin(item)}
+              accessibilityLabel="Modifier le bassin"
+            >
+              <Icon name="edit" size={24} color={COLORS.accent} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.basinDetail}>Espèce: {getEspeceName(item.espece)}</Text>
+        {item.date && <Text style={styles.basinDetail}>Mise en eau: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>}
+        {item.nombre ? <Text style={styles.basinDetail}>Poissons: {item.nombre}</Text> : null}
+      </TouchableOpacity>
     </Animatable.View>
   );
 
@@ -194,6 +232,9 @@ const FishManagementScreen: React.FC = () => {
 
       {/* Liste des bassins */}
       <FlatList
+        ListHeaderComponent={
+          <Text style={styles.totalHeader}>Total : {totalPoissons.toLocaleString('fr-FR')} poissons</Text>
+        }
         data={filteredBasins}
         renderItem={renderBasinItem}
         keyExtractor={(item) => item.id}
@@ -201,26 +242,43 @@ const FishManagementScreen: React.FC = () => {
         ListEmptyComponent={
           <Text style={styles.emptyText}>Aucun bassin trouvé</Text>
         }
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       />
 
-      {/* Bouton flottant pour ajouter un bassin */}
-      <Animatable.View animation="bounceIn" duration={1000}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => setIsModalVisible(true)}
-        >
-          <Icon name="add" size={30} color={COLORS.white} />
-        </TouchableOpacity>
-      </Animatable.View>
+      {/* FAB étendu : "+ Nouveau" qui se réduit à "+" au scroll */}
+      <TouchableOpacity
+        style={[styles.fab, fabExtended && styles.fabExtended]}
+        onPress={() => {
+          setEditingBasin(null);
+          setIsModalVisible(true);
+        }}
+        accessibilityLabel="Ajouter un nouveau bassin"
+      >
+        <Icon name="add" size={28} color={COLORS.white} />
+        {fabExtended && <Text style={styles.fabText}>Nouveau</Text>}
+      </TouchableOpacity>
 
-      {/* Modal pour ajouter un bassin */}
+      {/* Modal pour ajouter / modifier un bassin */}
       <AddBasinModal
         isVisible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-        onSubmit={(basin) => {
-          console.log('Nouveau bassin soumis:', JSON.stringify(basin, null, 2));
+        onClose={() => {
           setIsModalVisible(false);
+          setEditingBasin(null);
         }}
+        onSubmit={() => {
+          setIsModalVisible(false);
+          setEditingBasin(null);
+        }}
+        initialData={editingBasin ? mapBasinToForm(editingBasin) : undefined}
+      />
+
+      {/* Modal de détail d'un bassin */}
+      <DetailModal
+        visible={!!selectedBasin}
+        title="Détail du bassin"
+        rows={selectedBasin ? basinDetailRows(selectedBasin) : []}
+        onClose={() => setSelectedBasin(null)}
       />
     </View>
   );
@@ -270,6 +328,12 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: SIZES.padding,
   },
+  totalHeader: {
+    fontSize: SIZES.fontMedium,
+    fontFamily: FONTS.bold,
+    color: COLORS.success,
+    marginBottom: SIZES.margin,
+  },
   basinCard: {
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
@@ -311,16 +375,35 @@ const styles = StyleSheet.create({
     bottom: SIZES.margin * 2,
     right: SIZES.margin * 2,
     backgroundColor: COLORS.accent,
-    borderRadius: 30,
-    width: 60,
-    height: 60,
+    borderRadius: 28,
+    minWidth: 56,
+    height: 56,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
+  },
+  fabExtended: {
+    paddingHorizontal: 20,
+  },
+  fabText: {
+    color: COLORS.white,
+    fontFamily: FONTS.bold,
+    fontSize: SIZES.fontMedium,
+    marginLeft: 8,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    padding: 6,
+    marginLeft: SIZES.margin / 2,
   },
   loadingText: {
     fontSize: SIZES.fontMedium,

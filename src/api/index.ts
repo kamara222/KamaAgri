@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface Lot {
   id: string;
   batiment: string | null;
-  race: string | null;
+  race: string | Race | null;
   date: string;
   nombre: number;
   poids_moyen: number;
@@ -47,6 +47,12 @@ interface Espece {
   value: string;
 }
 
+// Interface pour une race de poulet (renvoyée par /race-poulet)
+export interface Race {
+  code: string;
+  nom: string;
+}
+
 // Interface pour une mortalité de poisson
 interface FishMortality {
   id: string;
@@ -74,8 +80,8 @@ interface Sale {
   type_de_vente: string;
   bassin?: string;
   batiment?: string;
-  espece_poisson?: string;
-  race_poulet?: string;
+  espece_poisson?: string | Race;
+  race_poulet?: string | Race;
   kg_poisson?: number;
   nombre_poulet?: number;
   nombre_poisson?: number;
@@ -197,6 +203,29 @@ export const createBassin = async (bassin: {
   }
 };
 
+// Mettre à jour un bassin (cf. swagger : PATCH /poisson/{id})
+export const updateBassin = async (bassin: {
+  id: string;
+  nom_bassin: string;
+  espece: string;
+  date?: string;
+  nombre?: number;
+}) => {
+  const endpoint = `/poisson/${bassin.id}`;
+  try {
+    const res: AxiosResponse<Basin> = await api.patch(endpoint, {
+      nom_bassin: bassin.nom_bassin,
+      espece: bassin.espece,
+      date: bassin.date,
+      nombre: bassin.nombre,
+    });
+    return res.data;
+  } catch (error) {
+    console.error('API error:', endpoint, error);
+    throw error;
+  }
+};
+
 // Supprimer un bassin
 export const deleteBassin = async (id: string) => {
   const endpoint = `/poisson/${id}`;
@@ -223,7 +252,7 @@ export const getEspeces = async () => {
 export const getRaces = async () => {
   const endpoint = '/race-poulet';
   try {
-    const res: AxiosResponse<Espece[]> = await api.get(endpoint);
+    const res: AxiosResponse<Race[]> = await api.get(endpoint);
     return res.data;
   } catch (error) {
     console.error('API error:', endpoint, error);
@@ -272,7 +301,8 @@ export const updateLot = async (lot: {
 }) => {
   const endpoint = `/poulet/${lot.id}`;
   try {
-    const res: AxiosResponse<Lot> = await api.put(endpoint, {
+    // L'API attend un PATCH (cf. swagger : PATCH /poulet/{id})
+    const res: AxiosResponse<Lot> = await api.patch(endpoint, {
       batiment: lot.batiment,
       race: lot.race,
       date: lot.date,

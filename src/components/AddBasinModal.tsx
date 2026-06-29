@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import * as Animatable from "react-native-animatable";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import CustomSelect from "./CustomSelect";
-import { useCreateBassin } from "../services";
+import { useCreateBassin, useUpdateBassin } from "../services";
 import Toast from "react-native-toast-message";
 
 // Types pour le formulaire
@@ -30,22 +30,43 @@ interface AddBasinModalProps {
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (basin: BasinForm) => void;
+  // Mode édition : si fourni (avec id), le formulaire est pré-rempli et la
+  // soumission déclenche une mise à jour (PATCH) au lieu d'une création.
+  initialData?: BasinForm & { id?: string };
+  resetForm?: boolean;
 }
+
+const EMPTY_FORM: BasinForm = { nom_bassin: "", espece: "", date: "", nombre: "" };
 
 const AddBasinModal: React.FC<AddBasinModalProps> = ({
   isVisible,
   onClose,
   onSubmit,
+  initialData,
+  resetForm,
 }) => {
+  const isEdit = !!initialData?.id;
+
   // État du formulaire
-  const [form, setForm] = useState<BasinForm>({
-    nom_bassin: "",
-    espece: "",
-    date: "",
-    nombre: "",
-  });
+  const [form, setForm] = useState<BasinForm>(initialData ?? EMPTY_FORM);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  // Synchroniser le formulaire avec les données d'édition / réinitialiser
+  useEffect(() => {
+    if (!isVisible) return;
+    if (initialData) {
+      setForm({
+        nom_bassin: initialData.nom_bassin ?? "",
+        espece: initialData.espece ?? "",
+        date: initialData.date ?? "",
+        nombre: initialData.nombre ?? "",
+      });
+    } else if (resetForm) {
+      setForm(EMPTY_FORM);
+    }
+    setErrors({});
+  }, [isVisible, initialData, resetForm]);
 
   // Liste statique des bassins pour le dropdown
   const bassins = [
@@ -64,8 +85,10 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
     { label: "Carpe", value: "carpe" },
   ];
 
-  // Hook pour créer un bassin
-  const { mutate: createBassin, isLoading: isSubmitting } = useCreateBassin();
+  // Hooks création / mise à jour
+  const { mutate: createBassin, isPending: isCreating } = useCreateBassin();
+  const { mutate: updateBassin, isPending: isUpdating } = useUpdateBassin();
+  const isSubmitting = isCreating || isUpdating;
 
   // Validation du formulaire
   const validateForm = () => {
@@ -79,39 +102,45 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  // Gestion de la soumission
+  // Gestion de la soumission (création ou mise à jour selon le mode)
   const handleSubmit = () => {
-    if (validateForm()) {
-      const basinData = {
-        nom_bassin: form.nom_bassin,
-        espece: form.espece,
-        date: form.date,
-        nombre: parseInt(form.nombre),
-      };
-      console.log("Données envoyées à l'API:", JSON.stringify(basinData, null, 2));
-      console.log("Espèce sélectionnée:", form.espece);
-      createBassin(basinData, {
-        onSuccess: (data) => {
-          console.log("Bassin créé avec succès:", JSON.stringify(data, null, 2));
-          Toast.show({
-            type: "successToast",
-            props: {
-              message: "Bassin ajouté avec succès",
-            },
-          });
-          onSubmit(form);
-          setForm({ nom_bassin: "", espece: "", date: "", nombre: "" });
-        },
-        onError: (error) => {
-          console.error("Erreur lors de la création du bassin:", error);
-          Toast.show({
-            type: "errorToast",
-            props: {
-              message: "Erreur lors de l’ajout du bassin",
-            },
-          });
-        },
-      });
+    if (!validateForm()) return;
+
+    const basinData = {
+      nom_bassin: form.nom_bassin,
+      espece: form.espece,
+      date: form.date,
+      nombre: parseInt(form.nombre || "0"),
+    };
+
+    const handlers = {
+      onSuccess: () => {
+        Toast.show({
+          type: "successToast",
+          props: {
+            message: isEdit ? "Bassin modifié avec succès" : "Bassin ajouté avec succès",
+          },
+        });
+        onSubmit(form);
+        if (!isEdit) setForm(EMPTY_FORM);
+      },
+      onError: (error: any) => {
+        console.error("Erreur lors de l'enregistrement du bassin:", error);
+        Toast.show({
+          type: "errorToast",
+          props: {
+            message: isEdit
+              ? "Erreur lors de la modification du bassin"
+              : "Erreur lors de l’ajout du bassin",
+          },
+        });
+      },
+    };
+
+    if (isEdit && initialData?.id) {
+      updateBassin({ id: initialData.id, ...basinData }, handlers);
+    } else {
+      createBassin(basinData, handlers);
     }
   };
 
@@ -136,7 +165,7 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
             <View style={styles.modalHandle} />
             {/* En-tête du modal */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ajouter Bassin</Text>
+              <Text style={styles.modalTitle}>{isEdit ? "Modifier Bassin" : "Ajouter Bassin"}</Text>
               <TouchableOpacity onPress={onClose}>
                 <Icon name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
@@ -236,7 +265,7 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
             {/* Bouton de soumission */}
             <Animatable.View
               animation="pulse"
-              iterationCount="infinite"
+              iterationCount={1}
               duration={2000}
             >
               <TouchableOpacity
@@ -249,7 +278,13 @@ const AddBasinModal: React.FC<AddBasinModalProps> = ({
               >
                 <View style={styles.submitGradient}>
                   <Text style={styles.submitButtonText}>
-                    {isSubmitting ? "Ajout en cours..." : "Ajouter"}
+                    {isSubmitting
+                      ? isEdit
+                        ? "Modification..."
+                        : "Ajout en cours..."
+                      : isEdit
+                      ? "Modifier"
+                      : "Ajouter"}
                   </Text>
                 </View>
               </TouchableOpacity>

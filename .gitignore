@@ -42,3 +42,6 @@ yarn-error.*
 
 # Json files
 school-app-push-2-firebase-adminsdk-fbsvc-57b09c315e.json
+
+# Doc interne (à ne pas pousser)
+CLAUDE.md

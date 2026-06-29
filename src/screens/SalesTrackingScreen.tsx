@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,9 @@ import * as Animatable from 'react-native-animatable';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import CustomSelect from '../components/CustomSelect';
 import AddSaleModal from '../components/AddSaleModal';
+import DetailModal from '../components/DetailModal';
 import { useChickenSales, useDeleteChickenSale, useRaces } from '../services';
+import { saleDetailRows } from '../utils';
 import Toast from 'react-native-toast-message';
 
 // Types pour une vente
@@ -43,6 +45,13 @@ const SalesTrackingScreen: React.FC = () => {
   const [filterClient, setFilterClient] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [visibleCount, setVisibleCount] = useState(10);
+
+  // Repartir à 10 lignes quand un filtre change
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [filterBatiment, filterRace, filterPeriod, filterClient, searchQuery]);
 
   // Liste statique des bâtiments
   const batiments = [
@@ -78,70 +87,48 @@ const SalesTrackingScreen: React.FC = () => {
   // Hook pour supprimer une vente
   const deleteChickenSaleMutation = useDeleteChickenSale();
 
-  // Log pour déboguer les données reçues
-  console.log('Ventes poulets reçues:', sales);
-  console.log('État de chargement:', isLoading);
-  console.log('Erreur API:', isError);
-  console.log('Races chargées:', racesData);
-
   // Définir les clients dynamiquement avec une vérification pour sales
   const clients = [
     { label: 'Tous les clients', value: '' },
-    ...(sales && Array.isArray(sales)
-      ? [...new Set(sales.map((sale) => sale.nom_complet_client))].map((client) => ({
-          label: client,
-          value: client,
+    ...(Array.isArray(sales)
+      ? [...new Set(sales.map((sale) => sale.nom_complet_client).filter(Boolean))].map((client) => ({
+          label: client || 'Non spécifié',
+          value: client || '',
         }))
       : []),
   ];
 
-  // Filtrer localement pour période, client et recherche
-  const filteredSales = sales && Array.isArray(sales) ? sales.filter((sale) => {
-    try {
-      const today = new Date('2025-09-26');
-      const oneWeekAgo = new Date(today);
-      oneWeekAgo.setDate(today.getDate() - 7);
-      const oneMonthAgo = new Date(today);
-      oneMonthAgo.setMonth(today.getMonth() - 1);
+  // Filtrer localement (mémoïsé) pour période, client et recherche
+  const filteredSales = useMemo(() => {
+    const list = Array.isArray(sales) ? sales : [];
+    const today = new Date();
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 7);
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    const q = searchQuery.toLowerCase();
 
+    return list.filter((sale) => {
       const matchesPeriod =
         !filterPeriod ||
-        (filterPeriod === 'week' &&
-          sale.date &&
-          new Date(sale.date) >= oneWeekAgo) ||
-        (filterPeriod === 'month' &&
-          sale.date &&
-          new Date(sale.date) >= oneMonthAgo);
+        (filterPeriod === 'week' && sale.date && new Date(sale.date) >= oneWeekAgo) ||
+        (filterPeriod === 'month' && sale.date && new Date(sale.date) >= oneMonthAgo);
 
       const matchesClient = !filterClient || sale.nom_complet_client === filterClient;
 
-      // Gestion de la recherche par race, bâtiment ou client
       const race = sale.race_poulet
         ? typeof sale.race_poulet === 'string'
           ? sale.race_poulet.toLowerCase()
-          : sale.race_poulet.nom
-          ? sale.race_poulet.nom.toLowerCase()
-          : ''
+          : (sale.race_poulet?.nom ?? '').toLowerCase()
         : '';
-      const batiment =
-        sale.batiment !== null && sale.batiment !== undefined
-          ? sale.batiment.toLowerCase()
-          : '';
-      const client = sale.nom_complet_client
-        ? sale.nom_complet_client.toLowerCase()
-        : '';
+      const batiment = sale.batiment ? String(sale.batiment).toLowerCase() : '';
+      const client = sale.nom_complet_client ? sale.nom_complet_client.toLowerCase() : '';
       const matchesSearch =
-        !searchQuery ||
-        race.includes(searchQuery.toLowerCase()) ||
-        batiment.includes(searchQuery.toLowerCase()) ||
-        client.includes(searchQuery.toLowerCase());
+        !searchQuery || race.includes(q) || batiment.includes(q) || client.includes(q);
 
       return matchesPeriod && matchesClient && matchesSearch;
-    } catch (error) {
-      console.error('Erreur de filtrage:', error);
-      return true;
-    }
-  }) : [];
+    });
+  }, [sales, filterPeriod, filterClient, searchQuery]);
 
   // Gérer la suppression d'une vente
   const handleDeleteSale = (saleId: string, sale: Sale) => {
@@ -197,26 +184,25 @@ const SalesTrackingScreen: React.FC = () => {
 
   // Rendu de chaque carte de vente
   const renderSaleItem = ({ item }: { item: Sale }) => (
-    <Animatable.View animation="fadeInUp" duration={500} style={styles.saleCard}>
-      <View style={styles.cardHeader}>
-        <Icon name="shopping-cart" size={28} color={COLORS.accent} />
-        <Text style={styles.cardTitle}>{item.batiment}</Text>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteSale(item.id, item)}
-        >
-          <Icon name="delete" size={24} color={COLORS.error} />
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>
-      <Text style={styles.cardDetail}>Race: {getRaceName(item.race_poulet)}</Text>
-      <Text style={styles.cardDetail}>Nombre vendu: {item.nombre_poulet}</Text>
-      <Text style={styles.cardDetail}>
-        Prix unitaire: {item.prix_unitaitre ? `${item.prix_unitaitre.toFixed(2)} XAF` : 'Non défini'}
-      </Text>
-      <Text style={styles.cardDetail}>Prix total: {item.prix_total.toFixed(2)} XAF</Text>
-      <Text style={styles.cardDetail}>Client: {item.nom_complet_client}</Text>
-      <Text style={styles.cardDetail}>Mode de paiement: {item.mode_paiement}</Text>
+    <Animatable.View animation="fadeInUp" duration={400} style={styles.saleCard}>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => setSelectedSale(item)}>
+        <View style={styles.cardHeader}>
+          <Icon name="shopping-cart" size={28} color={COLORS.accent} />
+          <Text style={styles.cardTitle}>{item.batiment}</Text>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteSale(item.id, item)}
+          >
+            <Icon name="delete" size={24} color={COLORS.error} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>
+        <Text style={styles.cardDetail}>Race: {getRaceName(item.race_poulet)}</Text>
+        <Text style={styles.cardDetail}>Nombre vendu: {item.nombre_poulet}</Text>
+        <Text style={styles.cardDetail}>
+          Prix total: {(item.prix_total ?? 0).toFixed(2)} XAF
+        </Text>
+      </TouchableOpacity>
     </Animatable.View>
   );
 
@@ -271,13 +257,15 @@ const SalesTrackingScreen: React.FC = () => {
 
       {/* Liste des ventes */}
       <FlatList
-        data={filteredSales}
-        renderItem={renderSaleItem}
+        data={filteredSales.slice(0, visibleCount)}
+        renderItem={renderSaleItem as any}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <Text style={styles.emptyText}>Aucune vente enregistrée</Text>
         }
+        onEndReached={() => setVisibleCount((c) => c + 10)}
+        onEndReachedThreshold={0.4}
       />
 
       {/* Bouton flottant */}
@@ -298,6 +286,14 @@ const SalesTrackingScreen: React.FC = () => {
           console.log('Nouvelle vente soumise:', sale);
           setIsModalVisible(false);
         }}
+      />
+
+      {/* Modal de détail d'une vente */}
+      <DetailModal
+        visible={!!selectedSale}
+        title="Détail de la vente"
+        rows={selectedSale ? saleDetailRows(selectedSale) : []}
+        onClose={() => setSelectedSale(null)}
       />
     </View>
   );

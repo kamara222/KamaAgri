@@ -79,7 +79,7 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
   ];
 
   // Hook pour créer une vente
-  const { mutate: createFishSale, isLoading: isSubmitting } = useCreateFishSale();
+  const { mutate: createFishSale, isPending: isSubmitting } = useCreateFishSale();
 
   // Calculer le prix total automatiquement
   useEffect(() => {
@@ -342,7 +342,7 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
             {/* Bouton de soumission */}
             <Animatable.View
               animation="pulse"
-              iterationCount="infinite"
+              iterationCount={1}
               duration={2000}
             >
               <TouchableOpacity

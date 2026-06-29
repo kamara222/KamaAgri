@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,13 @@ import * as Animatable from 'react-native-animatable';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../navigations/navigation';
 import CustomSelect from '../components/CustomSelect';
+import DetailModal from '../components/DetailModal';
 import { COLORS, SIZES, FONTS } from '../styles/GlobalStyles';
 import { useStats, useChickenSales, useFishSales } from '../services';
+import { saleDetailRows } from '../utils';
 
 // Interface pour les statistiques de l'API
 interface Stats {
@@ -44,16 +48,23 @@ interface Sale {
   amount: number;
   date: string;
   target: string;
+  raw: any; // vente complète pour la modal de détail
 }
 
 const SalesTrackingGeneralScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { data: stats, isLoading: isStatsLoading, isError: isStatsError } = useStats();
   const { data: chickenSales, isLoading: isChickenSalesLoading, isError: isChickenSalesError } = useChickenSales();
   const { data: fishSales, isLoading: isFishSalesLoading, isError: isFishSalesError } = useFishSales();
   const [filterType, setFilterType] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('mois');
   const [showSellModal, setShowSellModal] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [visibleCount, setVisibleCount] = useState(10);
+
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [filterType, filterPeriod]);
 
   // Options pour les filtres
   const typeOptions = [
@@ -77,6 +88,7 @@ const SalesTrackingGeneralScreen: React.FC = () => {
           amount: sale.prix_total,
           date: sale.date,
           target: sale.batiment || 'Lot inconnu',
+          raw: sale,
         }))
       );
     }
@@ -88,6 +100,7 @@ const SalesTrackingGeneralScreen: React.FC = () => {
           amount: sale.prix_total,
           date: sale.date,
           target: sale.bassin || 'Bassin inconnu',
+          raw: sale,
         }))
       );
     }
@@ -148,8 +161,8 @@ const SalesTrackingGeneralScreen: React.FC = () => {
         <tr>
           <!--<td>${sale.id}</td>-->
           <td>${sale.type}</td>
-          <td>${sale.amount.toLocaleString('fr-FR')} XAF</td>
-          <td>${new Date(sale.date).toLocaleDateString('fr-FR')}</td>
+          <td>${(sale.amount ?? 0).toLocaleString('fr-FR')} XAF</td>
+          <td>${sale.date ? new Date(sale.date).toLocaleDateString('fr-FR') : '—'}</td>
           <td>${sale.target}</td>
         </tr>`
       )
@@ -159,7 +172,7 @@ const SalesTrackingGeneralScreen: React.FC = () => {
       ? `Période: ${new Date(stats.periode.debut).toLocaleDateString('fr-FR')} - ${new Date(stats.periode.finExclusive).toLocaleDateString('fr-FR')}`
       : 'Période non disponible';
     const totalSales = stats
-      ? `Total des ventes: ${stats.totalVentesMois.toLocaleString('fr-FR')} XAF`
+      ? `Total des ventes: ${(stats.totalVentesMois ?? 0).toLocaleString('fr-FR')} XAF`
       : 'Total non disponible';
 
     return `
@@ -246,31 +259,44 @@ const SalesTrackingGeneralScreen: React.FC = () => {
   const renderSaleItem = ({ item, index }: { item: Sale; index: number }) => (
     <Animatable.View
       animation="fadeInUp"
-      duration={500}
-      delay={index * 100}
+      duration={400}
+      delay={(index % 10) * 50}
       style={styles.saleCard}
     >
-      <View style={styles.cardHeader}>
-        <Icon
-          name={item.type === 'Poulets' ? 'egg' : 'waves'}
-          size={24}
-          color={COLORS.accent}
-        />
-        <View style={styles.cardText}>
-          <Text style={styles.cardTitle}>
-            {item.type} - {item.target}
-          </Text>
-          <Text style={styles.cardDetail}>Montant: {item.amount.toLocaleString('fr-FR')} XAF</Text>
-          <Text style={styles.cardDetail}>Date: {new Date(item.date).toLocaleDateString('fr-FR')}</Text>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => setSelectedSale(item.raw)}>
+        <View style={styles.cardHeader}>
+          <Icon
+            name={item.type === 'Poulets' ? 'egg' : 'waves'}
+            size={24}
+            color={COLORS.accent}
+          />
+          <View style={styles.cardText}>
+            <Text style={styles.cardTitle}>
+              {item.type} - {item.target}
+            </Text>
+            <Text style={styles.cardDetail}>Montant: {(item.amount ?? 0).toLocaleString('fr-FR')} XAF</Text>
+            <Text style={styles.cardDetail}>Date: {item.date ? new Date(item.date).toLocaleDateString('fr-FR') : '—'}</Text>
+          </View>
+          <Icon name="chevron-right" size={24} color={COLORS.textLight} />
         </View>
-      </View>
+      </TouchableOpacity>
     </Animatable.View>
   );
+
+  // Pagination au scroll de la ScrollView externe (la FlatList est imbriquée non scrollable)
+  const handleScrollPagination = (e: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 80) {
+      setVisibleCount((c) => (c < filteredSales.length ? c + 10 : c));
+    }
+  };
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
+      onScroll={handleScrollPagination}
+      scrollEventThrottle={16}
     >
       {/* En-tête */}
       <Animatable.View animation="bounceIn" duration={1000} style={styles.header}>
@@ -409,7 +435,7 @@ const SalesTrackingGeneralScreen: React.FC = () => {
         <Text style={styles.errorText}>Erreur lors du chargement des ventes.</Text>
       ) : (
         <FlatList
-          data={filteredSales}
+          data={filteredSales.slice(0, visibleCount)}
           renderItem={renderSaleItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
@@ -420,6 +446,14 @@ const SalesTrackingGeneralScreen: React.FC = () => {
           nestedScrollEnabled
         />
       )}
+
+      {/* Modal de détail d'une vente */}
+      <DetailModal
+        visible={!!selectedSale}
+        title="Détail de la vente"
+        rows={selectedSale ? saleDetailRows(selectedSale) : []}
+        onClose={() => setSelectedSale(null)}
+      />
     </ScrollView>
   );
 };
