@@ -18,6 +18,7 @@ import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import CustomSelect from "./CustomSelect";
 import { useCreateChickenSale, useRaces } from "../services";
 import Toast from "react-native-toast-message";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Types pour le formulaire
 interface SaleForm {
@@ -91,6 +92,18 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
   // Hook pour créer une vente
   const { mutate: createChickenSale, isPending: isSubmitting } = useCreateChickenSale();
 
+  // ID de l'utilisateur connecté (vendeur), lu depuis AsyncStorage
+  const [vendeurId, setVendeurId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    AsyncStorage.getItem("userInfo").then((d) => {
+      if (d) {
+        try {
+          setVendeurId(JSON.parse(d)?.id);
+        } catch {}
+      }
+    });
+  }, []);
+
   // **********************************************
   // * CORRECTION 2: Calcul du Prix Total (Robuste)
   // **********************************************
@@ -136,6 +149,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({
         prix_total: parseFloat(prixTotalCalculated), // <-- UTILISER LA VALEUR CALCULÉE
         nom_complet_client: form.nom_complet_client,
         mode_paiement: form.mode_paiement,
+        vendeur: vendeurId,
       };
       
       console.log("Données envoyées à l'API:", saleData);

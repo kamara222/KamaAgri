@@ -109,6 +109,7 @@ const LoginScreen = ({ navigation }) => {
                 }
               }
               const userInfo = {
+                id: data.user.id,
                 prenom: data.user.prenom,
                 nom: data.user.nom,
                 email: data.user.email,

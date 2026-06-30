@@ -17,6 +17,7 @@ import { COLORS, SIZES, FONTS } from "../styles/GlobalStyles";
 import CustomSelect from "./CustomSelect";
 import { useCreateFishSale } from "../services";
 import Toast from "react-native-toast-message";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Types pour le formulaire
 interface SaleForm {
@@ -81,6 +82,18 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
   // Hook pour créer une vente
   const { mutate: createFishSale, isPending: isSubmitting } = useCreateFishSale();
 
+  // ID de l'utilisateur connecté (vendeur), lu depuis AsyncStorage
+  const [vendeurId, setVendeurId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    AsyncStorage.getItem("userInfo").then((d) => {
+      if (d) {
+        try {
+          setVendeurId(JSON.parse(d)?.id);
+        } catch {}
+      }
+    });
+  }, []);
+
   // Calculer le prix total automatiquement
   useEffect(() => {
     const kgPoisson = parseFloat(form.kg_poisson) || 0;
@@ -118,6 +131,7 @@ const AddFishSaleModal: React.FC<AddFishSaleModalProps> = ({
         prix_total: parseFloat(form.prix_total),
         nom_complet_client: form.nom_complet_client || null,
         mode_paiement: form.mode_paiement,
+        vendeur: vendeurId,
       };
       console.log("Données envoyées à l'API:", JSON.stringify(saleData, null, 2));
       console.log("Espèce sélectionnée:", form.espece_poisson);

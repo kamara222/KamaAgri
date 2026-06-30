@@ -73,6 +73,16 @@ interface FishFeedDistribution {
   nombre?: number;
 }
 
+// Interface pour le vendeur (renvoyé dans une vente par l'API)
+export interface Vendeur {
+  id?: string;
+  nom?: string;
+  prenom?: string;
+  email?: string;
+  numeroTelephone?: string;
+  role?: { code?: string; nom?: string } | string;
+}
+
 // Interface pour une vente
 interface Sale {
   id: string;
@@ -90,6 +100,7 @@ interface Sale {
   prix_total: number;
   nom_complet_client?: string;
   mode_paiement: string;
+  vendeur?: Vendeur | null;
 }
 
 // Interface pour un utilisateur
@@ -533,6 +544,7 @@ export const createFishSale = async (sale: {
   prix_total: number;
   nom_complet_client?: string;
   mode_paiement: string;
+  vendeur?: string;
 }) => {
   const endpoint = '/ventes';
   try {
@@ -578,6 +590,7 @@ export const createChickenSale = async (sale: {
   prix_total: number;
   nom_complet_client: string;
   mode_paiement: string;
+  vendeur?: string;
 }) => {
   const endpoint = '/ventes';
   try {

@@ -24,6 +24,14 @@ interface SaleLike {
   prix_total?: number;
   nom_complet_client?: string;
   mode_paiement?: string;
+  vendeur?: {
+    id?: string;
+    nom?: string;
+    prenom?: string;
+    email?: string;
+    numeroTelephone?: string;
+    role?: { code?: string; nom?: string } | string;
+  } | null;
 }
 
 const labelOf = (v: RaceOrEspece): string => {
@@ -65,6 +73,16 @@ export const saleDetailRows = (sale: SaleLike): { label: string; value: string }
     { label: 'Client', value: sale.nom_complet_client || 'Non spécifié' },
     { label: 'Mode de paiement', value: sale.mode_paiement || 'Non spécifié' },
   );
+
+  // Vendeur (objet renvoyé par l'API) — affiché seulement s'il est présent
+  if (sale.vendeur) {
+    const v = sale.vendeur;
+    const nomComplet = `${v.prenom ?? ''} ${v.nom ?? ''}`.trim();
+    const roleNom = typeof v.role === 'object' ? v.role?.nom : v.role;
+    const value =
+      (nomComplet || v.email || 'Non spécifié') + (roleNom ? ` (${roleNom})` : '');
+    rows.push({ label: 'Vendeur', value });
+  }
 
   return rows;
 };
