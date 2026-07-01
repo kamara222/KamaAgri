@@ -55,9 +55,12 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Réinitialiser le formulaire lorsque resetForm est true
+  // Synchroniser le formulaire à l'ouverture : pré-remplir en édition, vider en création.
   useEffect(() => {
-    if (isVisible && resetForm) {
+    if (!isVisible) return;
+    if (initialData) {
+      setForm(initialData); // édition → valeurs du lot sélectionné
+    } else if (resetForm) {
       setForm({
         dateArrivee: new Date(),
         nombrePoulets: '',
@@ -65,10 +68,12 @@ const AddLotModal: React.FC<AddLotModalProps> = ({
         batiment: '',
         race: '',
       });
-      setErrors({});
-      setShowDatePicker(false);
     }
-  }, [isVisible, resetForm]);
+    setErrors({});
+    setShowDatePicker(false);
+    // Dépendance volontairement limitée à `isVisible` (transition d'ouverture) pour ne pas
+    // réécrire le formulaire à chaque re-render du parent et effacer une saisie en cours.
+  }, [isVisible]);
 
   // Récupérer les races via API
   const { data: races, isLoading: racesLoading, error: racesError } = useRaces();
